@@ -19,6 +19,8 @@ class GameScene extends Phaser.Scene {
         this.currentTarget = null;
         this.targetLetter = null;
         this.consecutiveCorrect = 0;
+        this.correctCollections = 0; // Track how many times correct letter collected
+        this.requiredCollections = 3; // Need 3 correct to advance to next letter
 
         // Spawning timers
         this.lastObstacleTime = 0;
@@ -167,33 +169,21 @@ class GameScene extends Phaser.Scene {
             this.hearts.push(heart);
         }
 
-        // Target letter card (top center)
-        this.letterCard = this.add.image(640, 80, 'letter_card').setScale(0.8);
-        this.letterCard.setVisible(false);
-
-        this.targetText = this.add.text(640, 75, '', {
-            fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '64px',
-            color: '#2c1810',
-            fontStyle: 'bold'
-        }).setOrigin(0.5);
-
-        // "Zoek:" label (Dutch for "Find:")
-        this.findLabel = this.add.text(640, 25, 'Zoek:', {
+        // Progress indicator (top center) - shows collection progress
+        this.progressText = this.add.text(640, 35, '', {
             fontFamily: 'Arial',
-            fontSize: '20px',
+            fontSize: '24px',
             color: '#f4d03f',
             fontStyle: 'bold'
         }).setOrigin(0.5);
-        this.findLabel.setVisible(false);
 
         // "Listen again" button (Dutch: "Luister opnieuw")
-        this.listenAgainBtn = this.add.text(640, 140, '🔊 Luister opnieuw', {
+        this.listenAgainBtn = this.add.text(640, 75, '🔊 Luister opnieuw', {
             fontFamily: 'Arial',
-            fontSize: '16px',
+            fontSize: '20px',
             color: '#98D8E8',
-            backgroundColor: '#00000066',
-            padding: { x: 10, y: 5 }
+            backgroundColor: '#00000088',
+            padding: { x: 15, y: 8 }
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
         this.listenAgainBtn.setVisible(false);
 
@@ -286,17 +276,16 @@ class GameScene extends Phaser.Scene {
             allowGravity: false
         });
 
-        // Letter platforms group
-        this.letterPlatforms = this.physics.add.group({
-            allowGravity: false,
-            immovable: true
+        // Floating letters group (like fruits)
+        this.floatingLetters = this.physics.add.group({
+            allowGravity: false
         });
 
         // Collisions
         this.physics.add.collider(this.player, this.platforms, this.onPlatformLand, null, this);
-        this.physics.add.collider(this.player, this.letterPlatforms, this.onLetterPlatform, null, this);
         this.physics.add.overlap(this.player, this.obstacles, this.onObstacleHit, null, this);
         this.physics.add.overlap(this.player, this.collectibles, this.onCollectItem, null, this);
+        this.physics.add.overlap(this.player, this.floatingLetters, this.onCollectLetter, null, this);
     }
 
     startGame() {
@@ -322,83 +311,164 @@ class GameScene extends Phaser.Scene {
     selectNewTarget() {
         if (this.isGameOver) return;
 
+        // Reset collection count for new letter
+        this.correctCollections = 0;
+
         // Pick a random letter
         const letters = window.GameData.letters;
         const randomIndex = Phaser.Math.Between(0, Math.min(letters.length - 1, 5 + Math.floor(this.score / 100)));
         this.currentTarget = letters[randomIndex];
         this.targetLetter = this.currentTarget.char;
 
-        // Update UI
-        this.letterCard.setVisible(true);
-        this.findLabel.setVisible(true);
+        // Update progress indicator (don't show the letter!)
+        this.updateProgressDisplay();
         this.listenAgainBtn.setVisible(true);
-        this.targetText.setText(this.targetLetter);
 
-        // Animate letter card
-        this.tweens.add({
-            targets: this.letterCard,
-            scale: { from: 0.5, to: 0.8 },
-            duration: 300,
-            ease: 'Back.out'
-        });
-
-        // Speak the letter
+        // Speak the letter (audio only - no visual)
         if (window.AudioSynth) {
             window.AudioSynth.speakLetter(this.targetLetter, this.currentTarget.name);
         }
 
-        // Show feedback in Dutch: "Listen carefully..." with the Arabic letter
-        this.showFeedback(`Luister goed... ${this.targetLetter}`, '#f4d03f', 1500);
+        // Show feedback in Dutch: "Listen carefully!" (no letter shown)
+        this.showFeedback('Luister goed!', '#f4d03f', 1500);
 
-        // Spawn letter platforms after short delay
-        this.time.delayedCall(500, () => {
-            this.spawnLetterPlatforms();
-        });
+        // Start spawning floating letters
+        this.spawnFloatingLetters();
     }
 
-    spawnLetterPlatforms() {
+    updateProgressDisplay() {
+        // Show progress like "Verzameld: 1/3" (Collected: 1/3)
+        this.progressText.setText(`Verzameld: ${this.correctCollections}/${this.requiredCollections}`);
+    }
+
+    spawnFloatingLetters() {
         if (this.isGameOver || !this.currentTarget) return;
 
         const letters = window.GameData.letters;
         const baseX = 1400;
-        const platformY = this.groundY - Phaser.Math.Between(100, 180);
 
-        // Correct platform
-        const correctX = baseX + Phaser.Math.Between(0, 150);
-        this.createLetterPlatform(correctX, platformY, this.targetLetter, true);
+        // Spawn 3-4 letters with good spacing (one correct, rest wrong)
+        const numLetters = Phaser.Math.Between(3, 4);
+        const spacing = 250; // Good spacing between letters
+        const positions = [];
 
-        // Wrong platform (random different letter)
-        let wrongLetter;
-        do {
-            const wrongIndex = Phaser.Math.Between(0, Math.min(letters.length - 1, 7));
-            wrongLetter = letters[wrongIndex].char;
-        } while (wrongLetter === this.targetLetter);
+        // Generate positions with good vertical variety
+        for (let i = 0; i < numLetters; i++) {
+            positions.push({
+                x: baseX + (i * spacing) + Phaser.Math.Between(0, 50),
+                y: this.groundY - Phaser.Math.Between(100, 220)
+            });
+        }
 
-        const wrongX = correctX + Phaser.Math.Between(200, 300);
-        this.createLetterPlatform(wrongX, platformY + Phaser.Math.Between(-30, 30), wrongLetter, false);
+        // Shuffle positions
+        Phaser.Utils.Array.Shuffle(positions);
+
+        // Place correct letter at first position
+        this.createFloatingLetter(positions[0].x, positions[0].y, this.targetLetter, true);
+
+        // Place wrong letters at remaining positions
+        for (let i = 1; i < positions.length; i++) {
+            let wrongLetter;
+            do {
+                const wrongIndex = Phaser.Math.Between(0, Math.min(letters.length - 1, 7));
+                wrongLetter = letters[wrongIndex].char;
+            } while (wrongLetter === this.targetLetter);
+
+            this.createFloatingLetter(positions[i].x, positions[i].y, wrongLetter, false);
+        }
     }
 
-    createLetterPlatform(x, y, letter, isCorrect) {
-        const platform = this.letterPlatforms.create(x, y, 'platform');
-        platform.setScale(1.2);
-        platform.body.setSize(150, 30);
-        platform.body.setOffset(0, 5);
-        platform.isCorrect = isCorrect;
-        platform.letter = letter;
-        platform.body.velocity.x = -this.gameSpeed;
+    createFloatingLetter(x, y, letter, isCorrect) {
+        // Create a container-like object using a graphics background + text
+        // All letters look the same - player must identify by sound!
+        const bg = this.add.circle(x, y, 35, 0xf4d03f, 0.9);
+        bg.setStrokeStyle(3, 0x8b4513);
 
-        // Add letter text
-        const letterText = this.add.text(x, y - 10, letter, {
+        const letterText = this.add.text(x, y, letter, {
             fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '48px',
+            fontSize: '42px',
             color: '#2c1810',
             fontStyle: 'bold'
         }).setOrigin(0.5);
-        platform.letterText = letterText;
 
-        platform.setTint(0xffffff);
+        // Create physics body for collision
+        const hitbox = this.floatingLetters.create(x, y, null);
+        hitbox.setVisible(false);
+        hitbox.body.setCircle(35);
+        hitbox.body.velocity.x = -this.gameSpeed;
+        hitbox.isCorrect = isCorrect;
+        hitbox.letter = letter;
+        hitbox.letterText = letterText;
+        hitbox.letterBg = bg;
 
-        return platform;
+        // Bobbing animation (like fruits)
+        this.tweens.add({
+            targets: [bg, letterText],
+            y: y - 15,
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+
+        return hitbox;
+    }
+
+    onCollectLetter(player, letterObj) {
+        if (!letterObj.active) return;
+        letterObj.active = false;
+
+        if (letterObj.isCorrect) {
+            // Correct letter collected!
+            this.correctCollections++;
+            this.updateProgressDisplay();
+
+            // Sound and visual feedback
+            if (window.AudioSynth) {
+                window.AudioSynth.playCorrect();
+            }
+            this.updateScore(50);
+            this.consecutiveCorrect++;
+
+            // Show feedback
+            this.showFeedback('Goed zo! ممتاز', '#27ae60', 1000);
+            this.createStarBurst(letterObj.x, letterObj.y);
+
+            // Check if collected enough times
+            if (this.correctCollections >= this.requiredCollections) {
+                // Bonus for completing letter
+                this.updateScore(100);
+                this.showFeedback('Letter compleet! +100', '#f4d03f', 1500);
+
+                // Select new letter after delay
+                this.time.delayedCall(2000, () => {
+                    this.selectNewTarget();
+                });
+            }
+
+            // Speed up slightly
+            this.gameSpeed = Math.min(this.gameSpeed + 3, 350);
+        } else {
+            // Wrong letter!
+            if (window.AudioSynth) {
+                window.AudioSynth.playWrong();
+            }
+
+            this.consecutiveCorrect = 0;
+            this.showFeedback('Probeer opnieuw!', '#e74c3c', 1000);
+
+            // Speak the correct letter again
+            this.time.delayedCall(800, () => {
+                if (window.AudioSynth && this.currentTarget) {
+                    window.AudioSynth.speakLetter(this.targetLetter, this.currentTarget.name);
+                }
+            });
+        }
+
+        // Remove the letter
+        if (letterObj.letterText) letterObj.letterText.destroy();
+        if (letterObj.letterBg) letterObj.letterBg.destroy();
+        letterObj.destroy();
     }
 
     spawnObstacle() {
@@ -482,92 +552,6 @@ class GameScene extends Phaser.Scene {
             this.canJump = true;
             player.play('player_run_anim', true);
         }
-    }
-
-    onLetterPlatform(player, platform) {
-        if (!platform.active) return;
-
-        // Only trigger when landing on top
-        if (player.body.touching.down && platform.body.touching.up) {
-            this.isOnGround = true;
-            this.canJump = true;
-            player.play('player_idle_anim', true);
-
-            // Check if correct letter
-            if (platform.isCorrect) {
-                this.onCorrectLetter(platform);
-            } else {
-                this.onWrongLetter(platform);
-            }
-
-            // Mark as used
-            platform.active = false;
-        }
-    }
-
-    onCorrectLetter(platform) {
-        // Visual feedback
-        platform.setTexture('platform_correct');
-
-        // Sound
-        if (window.AudioSynth) {
-            window.AudioSynth.playCorrect();
-        }
-
-        // Score
-        this.updateScore(50);
-        this.consecutiveCorrect++;
-
-        // Show feedback in Dutch: "Goed zo!" (Well done!)
-        this.showFeedback('Goed zo! ممتاز', '#27ae60', 1000);
-
-        // Star burst effect
-        this.createStarBurst(platform.x, platform.y - 50);
-
-        // Bonus for consecutive correct
-        if (this.consecutiveCorrect >= 3) {
-            this.updateScore(30);
-            this.showFeedback('Combo Bonus! +30', '#f4d03f', 800);
-        }
-
-        // Select new target after delay
-        this.time.delayedCall(1500, () => {
-            this.selectNewTarget();
-        });
-
-        // Speed up slightly
-        this.gameSpeed = Math.min(this.gameSpeed + 5, 400);
-    }
-
-    onWrongLetter(platform) {
-        // Visual feedback
-        platform.setTexture('platform_wrong');
-
-        // Sound
-        if (window.AudioSynth) {
-            window.AudioSynth.playWrong();
-        }
-
-        // Reset combo
-        this.consecutiveCorrect = 0;
-
-        // Show feedback in Dutch: "Probeer opnieuw!" (Try again!)
-        this.showFeedback('Probeer opnieuw!', '#e74c3c', 1000);
-
-        // Slow down temporarily
-        const originalSpeed = this.gameSpeed;
-        this.gameSpeed = Math.max(this.gameSpeed - 50, 100);
-
-        this.time.delayedCall(2000, () => {
-            this.gameSpeed = originalSpeed;
-        });
-
-        // Speak correct answer
-        this.time.delayedCall(1000, () => {
-            if (window.AudioSynth && this.currentTarget) {
-                window.AudioSynth.speakLetter(this.targetLetter, this.currentTarget.name);
-            }
-        });
     }
 
     onObstacleHit(player, obstacle) {
@@ -805,11 +789,13 @@ class GameScene extends Phaser.Scene {
         // Update decorations
         this.updateDecorations();
 
-        // Update letter platform text positions
-        this.letterPlatforms.getChildren().forEach(platform => {
-            if (platform.letterText) {
-                platform.letterText.x = platform.x;
-                platform.letterText.y = platform.y - 10;
+        // Update floating letter positions (text and background follow hitbox)
+        this.floatingLetters.getChildren().forEach(letterObj => {
+            if (letterObj.letterText) {
+                letterObj.letterText.x = letterObj.x;
+            }
+            if (letterObj.letterBg) {
+                letterObj.letterBg.x = letterObj.x;
             }
         });
     }
@@ -868,30 +854,36 @@ class GameScene extends Phaser.Scene {
         this.platforms.getChildren().forEach(p => p.body.velocity.x = speed);
         this.obstacles.getChildren().forEach(o => o.body.velocity.x = speed);
         this.collectibles.getChildren().forEach(c => c.body.velocity.x = speed);
-        this.letterPlatforms.getChildren().forEach(lp => lp.body.velocity.x = speed);
+        this.floatingLetters.getChildren().forEach(fl => fl.body.velocity.x = speed);
     }
 
     handleSpawning(time) {
-        // Spawn obstacles
+        // Spawn obstacles (less frequent to not interfere with letter learning)
         if (time - this.lastObstacleTime > this.obstacleInterval) {
-            if (Phaser.Math.Between(0, 100) < 40) {
+            if (Phaser.Math.Between(0, 100) < 25) {
                 this.spawnObstacle();
             }
             this.lastObstacleTime = time;
-            // Decrease interval as game progresses
-            this.obstacleInterval = Math.max(2000, this.obstacleInterval - 10);
+            this.obstacleInterval = Math.max(3000, this.obstacleInterval - 5);
         }
 
-        // Spawn fruits
-        if (Phaser.Math.Between(0, 100) < 2) {
+        // Spawn floating letters periodically (if we have a target and haven't completed it)
+        if (this.currentTarget && this.correctCollections < this.requiredCollections) {
+            if (time - this.lastPlatformTime > this.platformInterval) {
+                // Only spawn if there aren't too many letters on screen
+                if (this.floatingLetters.getChildren().length < 6) {
+                    this.spawnFloatingLetters();
+                }
+                this.lastPlatformTime = time;
+                // Vary the interval a bit
+                this.platformInterval = Phaser.Math.Between(2500, 3500);
+            }
+        }
+
+        // Spawn fruits (less frequent)
+        if (Phaser.Math.Between(0, 100) < 1) {
             const fruitY = this.groundY - Phaser.Math.Between(80, 200);
             this.spawnFruit(1400, fruitY);
-        }
-
-        // Occasional special collectible
-        if (Phaser.Math.Between(0, 100) < 0.5) {
-            const bookY = this.groundY - Phaser.Math.Between(100, 150);
-            this.spawnBook(1400, bookY);
         }
     }
 
@@ -903,6 +895,9 @@ class GameScene extends Phaser.Scene {
                     if (obj.letterText) {
                         obj.letterText.destroy();
                     }
+                    if (obj.letterBg) {
+                        obj.letterBg.destroy();
+                    }
                     obj.destroy();
                 }
             });
@@ -911,7 +906,7 @@ class GameScene extends Phaser.Scene {
         cleanup(this.platforms);
         cleanup(this.obstacles);
         cleanup(this.collectibles);
-        cleanup(this.letterPlatforms);
+        cleanup(this.floatingLetters);
     }
 
     updateDecorations() {
