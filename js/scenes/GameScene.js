@@ -352,11 +352,12 @@ class GameScene extends Phaser.Scene {
         const spacing = 250; // 250px spacing between each letter
         const positions = [];
 
-        // Generate positions - spread out horizontally, same height band
+        // Generate positions - spread out horizontally, safe height range
+        // Not too low (avoid accidental hits) and not too high
         for (let i = 0; i < numLetters; i++) {
             positions.push({
                 x: baseX + (i * spacing),
-                y: this.groundY - Phaser.Math.Between(120, 160)
+                y: this.groundY - Phaser.Math.Between(180, 250)
             });
         }
 
@@ -381,12 +382,14 @@ class GameScene extends Phaser.Scene {
     createFloatingLetter(x, y, letter, isCorrect) {
         // Create a container-like object using a graphics background + text
         // All letters look the same - player must identify by sound!
-        const bg = this.add.circle(x, y, 35, 0xf4d03f, 0.9);
+        // Larger circle (45px radius) to fit Arabic letters with descenders
+        const bg = this.add.circle(x, y, 45, 0xf4d03f, 0.9);
         bg.setStrokeStyle(3, 0x8b4513);
 
-        const letterText = this.add.text(x, y, letter, {
+        // Smaller font to fit inside circle, shifted up slightly for descenders
+        const letterText = this.add.text(x, y - 2, letter, {
             fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '42px',
+            fontSize: '36px',
             color: '#2c1810',
             fontStyle: 'bold'
         }).setOrigin(0.5);
@@ -394,7 +397,7 @@ class GameScene extends Phaser.Scene {
         // Create physics body for collision
         const hitbox = this.floatingLetters.create(x, y, null);
         hitbox.setVisible(false);
-        hitbox.body.setCircle(35);
+        hitbox.body.setCircle(45);
         hitbox.body.velocity.x = -this.gameSpeed;
         hitbox.isCorrect = isCorrect;
         hitbox.letter = letter;
@@ -402,9 +405,22 @@ class GameScene extends Phaser.Scene {
         hitbox.letterBg = bg;
 
         // Bobbing animation (like fruits)
+        // Store original y positions for proper bobbing
+        hitbox.baseY = y;
+        hitbox.letterBaseY = y - 2;
+
         this.tweens.add({
-            targets: [bg, letterText],
-            y: y - 15,
+            targets: bg,
+            y: y - 12,
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+
+        this.tweens.add({
+            targets: letterText,
+            y: (y - 2) - 12,
             duration: 600,
             yoyo: true,
             repeat: -1,
