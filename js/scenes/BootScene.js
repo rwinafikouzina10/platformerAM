@@ -16,8 +16,7 @@ class BootScene extends Phaser.Scene {
         // Generate UI assets that are better procedurally created
         this.createUIAssets();
 
-        // Load audio assets (placeholder/generated)
-        this.loadAudioAssets();
+        // Audio is handled by Web Audio API synthesis in createSoundSynthesizer()
     }
 
     createLoadingBar() {
@@ -338,15 +337,6 @@ class BootScene extends Phaser.Scene {
         graphics.generateTexture('ground', 70, 70);
 
         graphics.destroy();
-    }
-
-    loadAudioAssets() {
-        // Placeholder audio
-        const silentAudio = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-        this.load.audio('jump', silentAudio);
-        this.load.audio('correct', silentAudio);
-        this.load.audio('wrong', silentAudio);
-        this.load.audio('coin', silentAudio);
     }
 
     create() {
