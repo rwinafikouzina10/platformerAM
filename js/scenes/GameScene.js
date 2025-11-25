@@ -347,35 +347,33 @@ class GameScene extends Phaser.Scene {
         const letters = window.GameData.letters;
         const baseX = 1400;
 
-        // Spawn 3 letters with generous spacing (one correct, rest wrong)
-        const numLetters = 3;
-        const spacing = 400; // Generous spacing between letters
+        // Spawn only 2 letters with very wide spacing (one correct, one wrong)
+        const numLetters = 2;
+        const spacing = 600; // Very wide spacing between letters
         const positions = [];
 
-        // Generate positions with good vertical variety
+        // Generate positions with vertical variety
         for (let i = 0; i < numLetters; i++) {
             positions.push({
                 x: baseX + (i * spacing),
-                y: this.groundY - Phaser.Math.Between(120, 200)
+                y: this.groundY - Phaser.Math.Between(100, 180)
             });
         }
 
-        // Shuffle positions
+        // Shuffle positions so correct letter isn't always first
         Phaser.Utils.Array.Shuffle(positions);
 
         // Place correct letter at first position
         this.createFloatingLetter(positions[0].x, positions[0].y, this.targetLetter, true);
 
-        // Place wrong letters at remaining positions
-        for (let i = 1; i < positions.length; i++) {
-            let wrongLetter;
-            do {
-                const wrongIndex = Phaser.Math.Between(0, Math.min(letters.length - 1, 7));
-                wrongLetter = letters[wrongIndex].char;
-            } while (wrongLetter === this.targetLetter);
+        // Place one wrong letter at second position
+        let wrongLetter;
+        do {
+            const wrongIndex = Phaser.Math.Between(0, Math.min(letters.length - 1, 7));
+            wrongLetter = letters[wrongIndex].char;
+        } while (wrongLetter === this.targetLetter);
 
-            this.createFloatingLetter(positions[i].x, positions[i].y, wrongLetter, false);
-        }
+        this.createFloatingLetter(positions[1].x, positions[1].y, wrongLetter, false);
     }
 
     createFloatingLetter(x, y, letter, isCorrect) {
@@ -870,13 +868,13 @@ class GameScene extends Phaser.Scene {
         // Spawn floating letters periodically (if we have a target and haven't completed it)
         if (this.currentTarget && this.correctCollections < this.requiredCollections) {
             if (time - this.lastPlatformTime > this.platformInterval) {
-                // Only spawn if there aren't too many letters on screen
-                if (this.floatingLetters.getChildren().length < 4) {
+                // Only spawn if no letters currently on screen (wait for previous pair to pass)
+                if (this.floatingLetters.getChildren().length === 0) {
                     this.spawnFloatingLetters();
                 }
                 this.lastPlatformTime = time;
-                // Longer interval to match wider spacing
-                this.platformInterval = Phaser.Math.Between(4000, 5000);
+                // Check again soon
+                this.platformInterval = 1000;
             }
         }
 
