@@ -295,16 +295,9 @@ class GameScene extends Phaser.Scene {
         this.gameSpeed = 200;
         this.updateScore(0);
 
-        // Start spawning after delay
+        // Start spawning letters after delay
         this.time.delayedCall(1000, () => {
             this.selectNewTarget();
-        });
-
-        // Spawn initial fruits
-        this.time.delayedCall(500, () => {
-            this.spawnFruit(800, this.groundY - 100);
-            this.spawnFruit(900, this.groundY - 100);
-            this.spawnFruit(1000, this.groundY - 100);
         });
     }
 
@@ -352,12 +345,12 @@ class GameScene extends Phaser.Scene {
         const spacing = 250; // 250px spacing between each letter
         const positions = [];
 
-        // Generate positions - spread out horizontally, safe height range
-        // Not too low (avoid accidental hits) and not too high
+        // Generate positions - spread out horizontally, reachable height
+        // 150-200px above ground is jumpable but not too low
         for (let i = 0; i < numLetters; i++) {
             positions.push({
                 x: baseX + (i * spacing),
-                y: this.groundY - Phaser.Math.Between(180, 250)
+                y: this.groundY - Phaser.Math.Between(150, 200)
             });
         }
 
@@ -894,12 +887,6 @@ class GameScene extends Phaser.Scene {
                 // Check again soon
                 this.platformInterval = 500;
             }
-        }
-
-        // Spawn fruits (less frequent)
-        if (Phaser.Math.Between(0, 100) < 1) {
-            const fruitY = this.groundY - Phaser.Math.Between(80, 200);
-            this.spawnFruit(1400, fruitY);
         }
     }
 
