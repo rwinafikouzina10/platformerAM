@@ -178,14 +178,33 @@ class GameScene extends Phaser.Scene {
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        // "Find:" label
-        this.findLabel = this.add.text(640, 25, 'Find:', {
+        // "Zoek:" label (Dutch for "Find:")
+        this.findLabel = this.add.text(640, 25, 'Zoek:', {
             fontFamily: 'Arial',
             fontSize: '20px',
             color: '#f4d03f',
             fontStyle: 'bold'
         }).setOrigin(0.5);
         this.findLabel.setVisible(false);
+
+        // "Listen again" button (Dutch: "Luister opnieuw")
+        this.listenAgainBtn = this.add.text(640, 140, '🔊 Luister opnieuw', {
+            fontFamily: 'Arial',
+            fontSize: '16px',
+            color: '#98D8E8',
+            backgroundColor: '#00000066',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        this.listenAgainBtn.setVisible(false);
+
+        this.listenAgainBtn.on('pointerdown', () => {
+            if (window.AudioSynth && this.currentTarget) {
+                window.AudioSynth.speakLetter(this.targetLetter, this.currentTarget.name);
+                // Visual feedback
+                this.listenAgainBtn.setScale(0.9);
+                this.time.delayedCall(100, () => this.listenAgainBtn.setScale(1));
+            }
+        });
 
         // Feedback text (center screen)
         this.feedbackText = this.add.text(640, 300, '', {
@@ -198,8 +217,8 @@ class GameScene extends Phaser.Scene {
         }).setOrigin(0.5);
         this.feedbackText.setDepth(100);
 
-        // High score
-        this.add.text(1270, 680, `Best: ${window.GameData.highScore}`, {
+        // High score (Dutch)
+        this.add.text(1270, 680, `Beste: ${window.GameData.highScore}`, {
             fontFamily: 'Arial',
             fontSize: '18px',
             color: '#ffffff',
@@ -312,6 +331,7 @@ class GameScene extends Phaser.Scene {
         // Update UI
         this.letterCard.setVisible(true);
         this.findLabel.setVisible(true);
+        this.listenAgainBtn.setVisible(true);
         this.targetText.setText(this.targetLetter);
 
         // Animate letter card
@@ -327,8 +347,8 @@ class GameScene extends Phaser.Scene {
             window.AudioSynth.speakLetter(this.targetLetter, this.currentTarget.name);
         }
 
-        // Show feedback
-        this.showFeedback(`Find: ${this.targetLetter}`, '#f4d03f', 1500);
+        // Show feedback in Dutch: "Listen carefully..." with the Arabic letter
+        this.showFeedback(`Luister goed... ${this.targetLetter}`, '#f4d03f', 1500);
 
         // Spawn letter platforms after short delay
         this.time.delayedCall(500, () => {
@@ -498,8 +518,8 @@ class GameScene extends Phaser.Scene {
         this.updateScore(50);
         this.consecutiveCorrect++;
 
-        // Show feedback
-        this.showFeedback('Correct! ممتاز', '#27ae60', 1000);
+        // Show feedback in Dutch: "Goed zo!" (Well done!)
+        this.showFeedback('Goed zo! ممتاز', '#27ae60', 1000);
 
         // Star burst effect
         this.createStarBurst(platform.x, platform.y - 50);
@@ -531,8 +551,8 @@ class GameScene extends Phaser.Scene {
         // Reset combo
         this.consecutiveCorrect = 0;
 
-        // Show feedback
-        this.showFeedback('Try Again! حاول مرة أخرى', '#e74c3c', 1000);
+        // Show feedback in Dutch: "Probeer opnieuw!" (Try again!)
+        this.showFeedback('Probeer opnieuw!', '#e74c3c', 1000);
 
         // Slow down temporarily
         const originalSpeed = this.gameSpeed;
@@ -705,8 +725,8 @@ class GameScene extends Phaser.Scene {
         const overlay = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.7);
         overlay.setDepth(90);
 
-        // Game Over text
-        this.add.text(640, 200, 'Game Over', {
+        // Game Over text (Dutch: "Einde Spel")
+        this.add.text(640, 200, 'Einde Spel', {
             fontFamily: 'Arial',
             fontSize: '72px',
             color: '#e74c3c',
@@ -714,26 +734,36 @@ class GameScene extends Phaser.Scene {
         }).setOrigin(0.5).setDepth(100);
 
         // Arabic text
-        this.add.text(640, 280, 'انتهت اللعبة', {
+        this.add.text(640, 270, 'انتهت اللعبة', {
             fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '48px',
+            fontSize: '36px',
             color: '#ffffff'
         }).setOrigin(0.5).setDepth(100);
 
-        // Final score
-        this.add.text(640, 360, `Score: ${this.score}`, {
+        // Final score (Dutch: "Je score")
+        this.add.text(640, 340, `Je score: ${this.score}`, {
             fontFamily: 'Arial',
             fontSize: '48px',
             color: '#f4d03f',
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(100);
 
-        // High score
-        this.add.text(640, 420, `Best: ${window.GameData.highScore}`, {
+        // High score (Dutch: "Beste")
+        this.add.text(640, 400, `Beste: ${window.GameData.highScore}`, {
             fontFamily: 'Arial',
             fontSize: '32px',
             color: '#ffffff'
         }).setOrigin(0.5).setDepth(100);
+
+        // New high score message if applicable
+        if (this.score > window.GameData.highScore) {
+            this.add.text(640, 450, 'Nieuwe hoogste score!', {
+                fontFamily: 'Arial',
+                fontSize: '24px',
+                color: '#f4d03f',
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setDepth(100);
+        }
 
         // Restart button using Pixel Adventure button
         const restartBtn = this.add.image(640, 520, 'btn_restart')

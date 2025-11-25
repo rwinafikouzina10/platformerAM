@@ -41,9 +41,46 @@ const config = {
 // Initialize the game
 const game = new Phaser.Game(config);
 
+// Dutch translations for UI
+window.Lang = {
+    // Game title
+    title: 'Faris & De Letter Oase',
+    subtitle: 'فارس وواحة الحروف',
+
+    // Boot/Loading screen
+    loading: 'Laden...',
+    tapToStart: 'Tik om te starten!',
+
+    // Game UI
+    find: 'Zoek:',
+    score: 'Score',
+    best: 'Beste',
+    lives: 'Levens',
+
+    // Feedback messages
+    correct: 'Goed zo!',
+    tryAgain: 'Probeer opnieuw!',
+    comboBonus: 'Combo Bonus! +30',
+    listenCarefully: 'Luister goed...',
+
+    // Game Over
+    gameOver: 'Einde Spel',
+    finalScore: 'Je score',
+    playAgain: 'Opnieuw spelen',
+    newHighScore: 'Nieuwe hoogste score!',
+
+    // Instructions
+    findTheLetter: 'Zoek de letter die je hoort!',
+    jumpToCollect: 'Spring op het juiste platform!',
+
+    // Audio hints
+    listenAgain: 'Luister nog een keer',
+    iHeard: 'Ik hoorde:'
+};
+
 // Global game data
 window.GameData = {
-    // Arabic Letters with their names
+    // Arabic Letters with their names (Dutch phonetic hints added)
     letters: [
         { char: 'أ', name: 'Alif', sound: 'alif' },
         { char: 'ب', name: 'Ba', sound: 'ba' },

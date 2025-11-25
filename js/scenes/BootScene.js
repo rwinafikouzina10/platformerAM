@@ -27,8 +27,8 @@ class BootScene extends Phaser.Scene {
         // Background
         this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e);
 
-        // Title
-        this.add.text(width / 2, height / 2 - 100, 'Faris & The Letter Oasis', {
+        // Title (Dutch)
+        this.add.text(width / 2, height / 2 - 100, 'Faris & De Letter Oase', {
             fontFamily: 'Noto Sans Arabic, Arial',
             fontSize: '48px',
             color: '#f4d03f',
@@ -40,6 +40,13 @@ class BootScene extends Phaser.Scene {
             fontFamily: 'Noto Sans Arabic, Arial',
             fontSize: '36px',
             color: '#ffffff'
+        }).setOrigin(0.5);
+
+        // Dutch instruction
+        this.add.text(width / 2, height / 2 - 5, 'Leer Arabische letters!', {
+            fontFamily: 'Arial',
+            fontSize: '20px',
+            color: '#98D8E8'
         }).setOrigin(0.5);
 
         // Loading bar background
@@ -57,8 +64,8 @@ class BootScene extends Phaser.Scene {
             0xf4d03f
         ).setOrigin(0, 0.5);
 
-        // Loading text
-        this.loadingText = this.add.text(width / 2, height / 2 + 100, 'Loading...', {
+        // Loading text (Dutch)
+        this.loadingText = this.add.text(width / 2, height / 2 + 100, 'Laden...', {
             fontFamily: 'Arial',
             fontSize: '24px',
             color: '#ffffff'
@@ -67,11 +74,11 @@ class BootScene extends Phaser.Scene {
         // Update loading bar
         this.load.on('progress', (value) => {
             this.loadingBar.width = 400 * value;
-            this.loadingText.setText(`Loading... ${Math.round(value * 100)}%`);
+            this.loadingText.setText(`Laden... ${Math.round(value * 100)}%`);
         });
 
         this.load.on('complete', () => {
-            this.loadingText.setText('Tap to Start!');
+            this.loadingText.setText('Tik om te starten!');
         });
     }
 
