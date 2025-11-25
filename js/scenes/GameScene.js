@@ -347,16 +347,16 @@ class GameScene extends Phaser.Scene {
         const letters = window.GameData.letters;
         const baseX = 1400;
 
-        // Spawn 3-4 letters with good spacing (one correct, rest wrong)
-        const numLetters = Phaser.Math.Between(3, 4);
-        const spacing = 250; // Good spacing between letters
+        // Spawn 3 letters with generous spacing (one correct, rest wrong)
+        const numLetters = 3;
+        const spacing = 400; // Generous spacing between letters
         const positions = [];
 
         // Generate positions with good vertical variety
         for (let i = 0; i < numLetters; i++) {
             positions.push({
-                x: baseX + (i * spacing) + Phaser.Math.Between(0, 50),
-                y: this.groundY - Phaser.Math.Between(100, 220)
+                x: baseX + (i * spacing),
+                y: this.groundY - Phaser.Math.Between(120, 200)
             });
         }
 
@@ -871,12 +871,12 @@ class GameScene extends Phaser.Scene {
         if (this.currentTarget && this.correctCollections < this.requiredCollections) {
             if (time - this.lastPlatformTime > this.platformInterval) {
                 // Only spawn if there aren't too many letters on screen
-                if (this.floatingLetters.getChildren().length < 6) {
+                if (this.floatingLetters.getChildren().length < 4) {
                     this.spawnFloatingLetters();
                 }
                 this.lastPlatformTime = time;
-                // Vary the interval a bit
-                this.platformInterval = Phaser.Math.Between(2500, 3500);
+                // Longer interval to match wider spacing
+                this.platformInterval = Phaser.Math.Between(4000, 5000);
             }
         }
 
