@@ -35,7 +35,7 @@ const config = {
             start: true
         }]
     },
-    scene: [BootScene, GameScene]
+    scene: [BootScene, MenuScene, GameScene]
 };
 
 // Initialize the game

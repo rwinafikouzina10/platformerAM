@@ -22,6 +22,12 @@ class GameScene extends Phaser.Scene {
         this.correctCollections = 0; // Track how many times correct letter collected
         this.requiredCollections = 5; // Need 5 correct to advance to next letter
 
+        // Level system
+        this.currentLevel = window.GameData.currentLevel || 1;
+        this.levelLetters = this.getLettersForLevel(this.currentLevel);
+        this.completedLettersInLevel = [];
+        this.currentLetterIndex = 0;
+
         // Spawning timers
         this.lastObstacleTime = 0;
         this.lastPlatformTime = 0;
@@ -61,8 +67,24 @@ class GameScene extends Phaser.Scene {
     }
 
     createBackground() {
-        // Tiled background from Pixel Adventure (Yellow/desert themed)
-        this.bg = this.add.tileSprite(640, 360, 1280, 720, 'bg_yellow');
+        // Different background per level
+        let bgKey;
+        switch (this.currentLevel) {
+            case 1:
+                bgKey = 'bg_yellow'; // Desert/sand for beginners
+                break;
+            case 2:
+                bgKey = 'bg_blue'; // Sky/ocean for intermediate
+                break;
+            case 3:
+                bgKey = 'bg_brown'; // Earth/advanced
+                break;
+            default:
+                bgKey = 'bg_yellow';
+        }
+
+        // Tiled background that scrolls
+        this.bg = this.add.tileSprite(640, 360, 1280, 720, bgKey);
         this.bg.setScrollFactor(0);
 
         // Add decorative elements (palm trees, oasis)
@@ -301,16 +323,58 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    getLettersForLevel(level) {
+        const letters = window.GameData.letters;
+        if (level === 3) {
+            // Level 3 includes harakat - create letter+harakat combinations
+            const combinations = [];
+            const harakat = window.GameData.harakat || [];
+            // Add first 10 letters with harakat
+            for (let i = 0; i < Math.min(10, letters.length); i++) {
+                harakat.forEach(h => {
+                    combinations.push({
+                        char: letters[i].char + h.char,
+                        name: letters[i].name + ' met ' + h.name,
+                        sound: letters[i].sound,
+                        forms: [letters[i].char + h.char], // Combined form
+                        baseChar: letters[i].char
+                    });
+                });
+            }
+            return combinations;
+        }
+        return letters;
+    }
+
     selectNewTarget() {
         if (this.isGameOver) return;
 
         // Reset collection count for new letter
         this.correctCollections = 0;
 
-        // Pick a random letter
-        const letters = window.GameData.letters;
-        const randomIndex = Phaser.Math.Between(0, Math.min(letters.length - 1, 5 + Math.floor(this.score / 100)));
-        this.currentTarget = letters[randomIndex];
+        // Check if all letters in level are completed
+        if (this.completedLettersInLevel.length >= this.levelLetters.length) {
+            this.levelComplete();
+            return;
+        }
+
+        // Get next uncompleted letter (sequential order for learning)
+        let nextLetter = null;
+        for (let i = 0; i < this.levelLetters.length; i++) {
+            const letter = this.levelLetters[i];
+            if (!this.completedLettersInLevel.includes(letter.char)) {
+                nextLetter = letter;
+                this.currentLetterIndex = i;
+                break;
+            }
+        }
+
+        if (!nextLetter) {
+            this.levelComplete();
+            return;
+        }
+
+        this.currentTarget = nextLetter;
         this.targetLetter = this.currentTarget.char;
 
         // Update progress indicator (don't show the letter!)
@@ -330,8 +394,101 @@ class GameScene extends Phaser.Scene {
     }
 
     updateProgressDisplay() {
-        // Show progress like "Verzameld: 1/3" (Collected: 1/3)
-        this.progressText.setText(`Verzameld: ${this.correctCollections}/${this.requiredCollections}`);
+        // Show progress: letter count and collection progress
+        const letterProgress = `Letter ${this.currentLetterIndex + 1}/${this.levelLetters.length}`;
+        const collectProgress = `Verzameld: ${this.correctCollections}/${this.requiredCollections}`;
+        this.progressText.setText(`Niveau ${this.currentLevel} | ${letterProgress} | ${collectProgress}`);
+    }
+
+    levelComplete() {
+        this.isGameOver = true;
+
+        // Save progress
+        const unlockedLevel = parseInt(localStorage.getItem('farisUnlockedLevel') || '1');
+        if (this.currentLevel >= unlockedLevel && this.currentLevel < 3) {
+            localStorage.setItem('farisUnlockedLevel', (this.currentLevel + 1).toString());
+        }
+
+        // Save completed letters for this level
+        const completedLetters = JSON.parse(localStorage.getItem('farisCompletedLetters') || '{}');
+        completedLetters[this.currentLevel] = this.completedLettersInLevel;
+        localStorage.setItem('farisCompletedLetters', JSON.stringify(completedLetters));
+
+        // Show level complete screen
+        this.showLevelCompleteScreen();
+    }
+
+    showLevelCompleteScreen() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+
+        // Darken background
+        const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8);
+        overlay.setDepth(90);
+
+        // Level complete text
+        this.add.text(width / 2, 180, 'Niveau Compleet!', {
+            fontFamily: 'Arial',
+            fontSize: '64px',
+            color: '#27ae60',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(100);
+
+        // Arabic congratulations
+        this.add.text(width / 2, 250, 'أحسنت!', {
+            fontFamily: 'Noto Sans Arabic, Arial',
+            fontSize: '48px',
+            color: '#f4d03f'
+        }).setOrigin(0.5).setDepth(100);
+
+        // Score
+        this.add.text(width / 2, 320, `Score: ${this.score}`, {
+            fontFamily: 'Arial',
+            fontSize: '36px',
+            color: '#ffffff'
+        }).setOrigin(0.5).setDepth(100);
+
+        // Letters learned
+        this.add.text(width / 2, 380, `Letters geleerd: ${this.completedLettersInLevel.length}`, {
+            fontFamily: 'Arial',
+            fontSize: '24px',
+            color: '#98D8E8'
+        }).setOrigin(0.5).setDepth(100);
+
+        // Next level button (if not level 3)
+        if (this.currentLevel < 3) {
+            const nextBtn = this.add.text(width / 2, 480, '▶ Volgende Niveau', {
+                fontFamily: 'Arial',
+                fontSize: '28px',
+                color: '#ffffff',
+                backgroundColor: '#27ae60',
+                padding: { x: 30, y: 15 }
+            }).setOrigin(0.5).setDepth(100).setInteractive({ useHandCursor: true });
+
+            nextBtn.on('pointerdown', () => {
+                window.GameData.currentLevel = this.currentLevel + 1;
+                this.scene.restart();
+            });
+
+            nextBtn.on('pointerover', () => nextBtn.setScale(1.1));
+            nextBtn.on('pointerout', () => nextBtn.setScale(1));
+        }
+
+        // Back to menu button
+        const menuBtn = this.add.text(width / 2, 560, '← Terug naar Menu', {
+            fontFamily: 'Arial',
+            fontSize: '24px',
+            color: '#ffffff',
+            backgroundColor: '#3498db',
+            padding: { x: 25, y: 12 }
+        }).setOrigin(0.5).setDepth(100).setInteractive({ useHandCursor: true });
+
+        menuBtn.on('pointerdown', () => {
+            this.scene.start('MenuScene');
+        });
+
+        menuBtn.on('pointerover', () => menuBtn.setScale(1.1));
+        menuBtn.on('pointerout', () => menuBtn.setScale(1));
     }
 
     spawnFloatingLetters() {
@@ -357,10 +514,18 @@ class GameScene extends Phaser.Scene {
         // Shuffle positions so correct letter position is random
         Phaser.Utils.Array.Shuffle(positions);
 
-        // Get a random form of the target letter (isolated, initial, medial, final)
-        // This teaches kids to recognize the same letter in different positions
+        // Get letter form based on level
+        // Level 1: only isolated form (index 0)
+        // Level 2+: all forms (isolated, initial, medial, final)
+        let randomForm;
         const targetForms = this.currentTarget.forms || [this.targetLetter];
-        const randomForm = targetForms[Phaser.Math.Between(0, targetForms.length - 1)];
+        if (this.currentLevel === 1) {
+            // Level 1: only isolated form
+            randomForm = targetForms[0];
+        } else {
+            // Level 2+: random form to teach all appearances
+            randomForm = targetForms[Phaser.Math.Between(0, targetForms.length - 1)];
+        }
 
         // Place correct letter (random form) at first shuffled position
         this.createFloatingLetter(positions[0].x, positions[0].y, randomForm, true);
@@ -375,9 +540,14 @@ class GameScene extends Phaser.Scene {
                 wrongLetter = wrongLetterData.char;
             } while (wrongLetter === this.currentTarget.char);
 
-            // Use a random form of the wrong letter too
+            // Use form based on level
             const wrongForms = wrongLetterData.forms || [wrongLetter];
-            const wrongForm = wrongForms[Phaser.Math.Between(0, wrongForms.length - 1)];
+            let wrongForm;
+            if (this.currentLevel === 1) {
+                wrongForm = wrongForms[0]; // Level 1: isolated only
+            } else {
+                wrongForm = wrongForms[Phaser.Math.Between(0, wrongForms.length - 1)];
+            }
 
             this.createFloatingLetter(positions[i].x, positions[i].y, wrongForm, false);
         }
@@ -457,6 +627,11 @@ class GameScene extends Phaser.Scene {
 
             // Check if collected enough times
             if (this.correctCollections >= this.requiredCollections) {
+                // Mark this letter as completed
+                if (!this.completedLettersInLevel.includes(this.currentTarget.char)) {
+                    this.completedLettersInLevel.push(this.currentTarget.char);
+                }
+
                 // Bonus for completing letter
                 this.updateScore(100);
                 this.showFeedback('Letter compleet! +100', '#f4d03f', 1500);
@@ -792,8 +967,8 @@ class GameScene extends Phaser.Scene {
     update(time, delta) {
         if (this.isGameOver) return;
 
-        // Parallax scrolling background
-        this.bg.tilePositionX += this.gameSpeed * 0.005;
+        // Parallax scrolling background - synced with game speed
+        this.bg.tilePositionX += this.gameSpeed * 0.15;
 
         // Handle player movement and animation
         this.handlePlayerMovement();

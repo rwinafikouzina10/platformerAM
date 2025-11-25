@@ -346,11 +346,11 @@ class BootScene extends Phaser.Scene {
         // Set up Web Audio context for sound synthesis
         this.createSoundSynthesizer();
 
-        // Transition to game on tap
+        // Transition to menu on tap
         this.input.once('pointerdown', () => {
             this.cameras.main.fadeOut(500, 0, 0, 0);
             this.cameras.main.once('camerafadeoutcomplete', () => {
-                this.scene.start('GameScene');
+                this.scene.start('MenuScene');
             });
         });
     }
