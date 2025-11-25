@@ -20,7 +20,7 @@ class GameScene extends Phaser.Scene {
         this.targetLetter = null;
         this.consecutiveCorrect = 0;
         this.correctCollections = 0; // Track how many times correct letter collected
-        this.requiredCollections = 3; // Need 3 correct to advance to next letter
+        this.requiredCollections = 5; // Need 5 correct to advance to next letter
 
         // Spawning timers
         this.lastObstacleTime = 0;
@@ -357,32 +357,44 @@ class GameScene extends Phaser.Scene {
         // Shuffle positions so correct letter position is random
         Phaser.Utils.Array.Shuffle(positions);
 
-        // Place correct letter at first shuffled position
-        this.createFloatingLetter(positions[0].x, positions[0].y, this.targetLetter, true);
+        // Get a random form of the target letter (isolated, initial, medial, final)
+        // This teaches kids to recognize the same letter in different positions
+        const targetForms = this.currentTarget.forms || [this.targetLetter];
+        const randomForm = targetForms[Phaser.Math.Between(0, targetForms.length - 1)];
 
-        // Place wrong letters at remaining positions
+        // Place correct letter (random form) at first shuffled position
+        this.createFloatingLetter(positions[0].x, positions[0].y, randomForm, true);
+
+        // Place wrong letters at remaining positions (use isolated form for clarity)
         for (let i = 1; i < positions.length; i++) {
             let wrongLetter;
+            let wrongLetterData;
             do {
                 const wrongIndex = Phaser.Math.Between(0, Math.min(letters.length - 1, 7));
-                wrongLetter = letters[wrongIndex].char;
-            } while (wrongLetter === this.targetLetter);
+                wrongLetterData = letters[wrongIndex];
+                wrongLetter = wrongLetterData.char;
+            } while (wrongLetter === this.currentTarget.char);
 
-            this.createFloatingLetter(positions[i].x, positions[i].y, wrongLetter, false);
+            // Use a random form of the wrong letter too
+            const wrongForms = wrongLetterData.forms || [wrongLetter];
+            const wrongForm = wrongForms[Phaser.Math.Between(0, wrongForms.length - 1)];
+
+            this.createFloatingLetter(positions[i].x, positions[i].y, wrongForm, false);
         }
     }
 
     createFloatingLetter(x, y, letter, isCorrect) {
         // Create a container-like object using a graphics background + text
         // All letters look the same - player must identify by sound!
-        // Larger circle (45px radius) to fit Arabic letters with descenders
-        const bg = this.add.circle(x, y, 45, 0xf4d03f, 0.9);
+        // Large circle (50px radius) to fit Arabic letters including descenders
+        const bg = this.add.circle(x, y, 50, 0xf4d03f, 0.9);
         bg.setStrokeStyle(3, 0x8b4513);
 
-        // Smaller font to fit inside circle, shifted up slightly for descenders
-        const letterText = this.add.text(x, y - 2, letter, {
+        // Font sized and positioned to fit all Arabic letter forms
+        // Shifted up more (-8) to accommodate letters with parts below baseline
+        const letterText = this.add.text(x, y - 8, letter, {
             fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '36px',
+            fontSize: '32px',
             color: '#2c1810',
             fontStyle: 'bold'
         }).setOrigin(0.5);
@@ -390,7 +402,7 @@ class GameScene extends Phaser.Scene {
         // Create physics body for collision
         const hitbox = this.floatingLetters.create(x, y, null);
         hitbox.setVisible(false);
-        hitbox.body.setCircle(45);
+        hitbox.body.setCircle(50);
         hitbox.body.velocity.x = -this.gameSpeed;
         hitbox.isCorrect = isCorrect;
         hitbox.letter = letter;
@@ -400,7 +412,7 @@ class GameScene extends Phaser.Scene {
         // Bobbing animation (like fruits)
         // Store original y positions for proper bobbing
         hitbox.baseY = y;
-        hitbox.letterBaseY = y - 2;
+        hitbox.letterBaseY = y - 8;
 
         this.tweens.add({
             targets: bg,
@@ -413,7 +425,7 @@ class GameScene extends Phaser.Scene {
 
         this.tweens.add({
             targets: letterText,
-            y: (y - 2) - 12,
+            y: (y - 8) - 12,
             duration: 600,
             yoyo: true,
             repeat: -1,
