@@ -32,6 +32,9 @@ class GameScene extends Phaser.Scene {
         // Player state
         this.canJump = true;
         this.isOnGround = true;
+
+        // Available fruit types for collectibles
+        this.fruitTypes = ['apple', 'banana', 'cherry', 'orange', 'melon', 'kiwi', 'strawberry'];
     }
 
     create() {
@@ -56,12 +59,9 @@ class GameScene extends Phaser.Scene {
     }
 
     createBackground() {
-        // Sky (static)
-        this.add.image(640, 360, 'sky');
-
-        // Parallax background layers
-        this.dunesBack = this.add.tileSprite(640, 360, 1280, 720, 'dunes_back');
-        this.dunesFront = this.add.tileSprite(640, 360, 1280, 720, 'dunes_front');
+        // Tiled background from Pixel Adventure (Yellow/desert themed)
+        this.bg = this.add.tileSprite(640, 360, 1280, 720, 'bg_yellow');
+        this.bg.setScrollFactor(0);
 
         // Add decorative elements (palm trees, oasis)
         this.decorations = this.add.group();
@@ -83,53 +83,74 @@ class GameScene extends Phaser.Scene {
         // Ground group (static physics bodies)
         this.ground = this.physics.add.staticGroup();
 
-        // Create ground tiles
-        for (let x = 0; x < 1400; x += 64) {
-            const tile = this.ground.create(x, this.groundY + 32, 'ground');
-            tile.setOrigin(0.5, 0.5);
-            tile.refreshBody();
+        // Create ground tiles using Kenney sand tiles
+        const tileWidth = 70;
+        for (let x = 0; x < 1400; x += tileWidth) {
+            let tileKey = 'sand_mid';
+            if (x === 0) {
+                tileKey = 'sand_left';
+            }
+
+            // Top layer
+            const topTile = this.ground.create(x, this.groundY, tileKey);
+            topTile.setOrigin(0, 0);
+            topTile.refreshBody();
+
+            // Fill below with center tiles
+            const fillTile = this.ground.create(x, this.groundY + 70, 'sand_center');
+            fillTile.setOrigin(0, 0);
+            fillTile.refreshBody();
         }
     }
 
     createPlayer() {
-        // Create player sprite
-        this.player = this.physics.add.sprite(200, this.groundY - 50, 'player');
-        this.player.setScale(1.2);
+        // Create player sprite with Ninja Frog
+        this.player = this.physics.add.sprite(200, this.groundY - 50, 'player_idle');
+        this.player.setScale(2); // Scale up the 32x32 sprite
         this.player.setBounce(0.1);
         this.player.setCollideWorldBounds(true);
 
-        // Adjust hitbox
-        this.player.body.setSize(40, 55);
-        this.player.body.setOffset(12, 9);
+        // Adjust hitbox for the scaled sprite
+        this.player.body.setSize(20, 28);
+        this.player.body.setOffset(6, 4);
+
+        // Start idle animation
+        this.player.play('player_idle_anim');
 
         // Add player to ground collision
         this.physics.add.collider(this.player, this.ground, () => {
             if (!this.isOnGround) {
                 this.isOnGround = true;
                 this.canJump = true;
-                this.player.setTexture('player');
+                // Switch to run animation when on ground and moving
+                if (this.player.body.velocity.x !== 0) {
+                    this.player.play('player_run_anim', true);
+                } else {
+                    this.player.play('player_idle_anim', true);
+                }
             }
         });
 
-        // Player dust effect
-        this.playerDust = this.add.particles(0, 0, 'coin', {
-            speed: { min: 20, max: 50 },
-            scale: { start: 0.2, end: 0 },
-            alpha: { start: 0.5, end: 0 },
-            lifespan: 300,
-            frequency: 100,
+        // Dust particles when running
+        this.playerDust = this.add.particles(0, 0, 'sand_center', {
+            speed: { min: 10, max: 30 },
+            scale: { start: 0.1, end: 0 },
+            alpha: { start: 0.4, end: 0 },
+            lifespan: 200,
+            frequency: 150,
             quantity: 1,
             tint: 0xf4d03f
         });
-        this.playerDust.startFollow(this.player, 0, 30);
+        this.playerDust.startFollow(this.player, 0, 20);
     }
 
     createUI() {
         // Score panel (top left)
         this.add.image(110, 35, 'score_panel');
 
-        // Coin icon
-        this.add.image(30, 35, 'coin').setScale(0.8);
+        // Fruit icon for score
+        const scoreIcon = this.add.sprite(30, 35, 'apple').setScale(1);
+        scoreIcon.play('apple_anim');
 
         // Score text
         this.scoreText = this.add.text(60, 35, '0', {
@@ -194,7 +215,7 @@ class GameScene extends Phaser.Scene {
             radius: 60,
             base: this.add.image(0, 0, 'joystick_base').setAlpha(0.6),
             thumb: this.add.image(0, 0, 'joystick_thumb').setAlpha(0.8),
-            dir: 'left&right',  // Only horizontal movement
+            dir: 'left&right',
             enable: true
         });
 
@@ -271,11 +292,11 @@ class GameScene extends Phaser.Scene {
             this.selectNewTarget();
         });
 
-        // Spawn initial coins
+        // Spawn initial fruits
         this.time.delayedCall(500, () => {
-            this.spawnCoin(800, this.groundY - 100);
-            this.spawnCoin(900, this.groundY - 100);
-            this.spawnCoin(1000, this.groundY - 100);
+            this.spawnFruit(800, this.groundY - 100);
+            this.spawnFruit(900, this.groundY - 100);
+            this.spawnFruit(1000, this.groundY - 100);
         });
     }
 
@@ -355,7 +376,6 @@ class GameScene extends Phaser.Scene {
         }).setOrigin(0.5);
         platform.letterText = letterText;
 
-        // Tint based on correctness (hidden until touched)
         platform.setTint(0xffffff);
 
         return platform;
@@ -365,28 +385,37 @@ class GameScene extends Phaser.Scene {
         if (this.isGameOver) return;
 
         const x = 1400;
-        const y = this.groundY - 40;
+        const y = this.groundY;
 
-        const obstacle = this.obstacles.create(x, y, 'cactus');
+        // Use spikes as obstacle
+        const obstacle = this.obstacles.create(x, y, 'spikes');
         obstacle.setOrigin(0.5, 1);
-        obstacle.body.setSize(30, 60);
-        obstacle.body.setOffset(15, 20);
+        obstacle.setScale(2); // Scale up the 16x16 spikes
+        obstacle.body.setSize(32, 16);
+        obstacle.body.setOffset(0, 16);
         obstacle.body.velocity.x = -this.gameSpeed;
 
         return obstacle;
     }
 
-    spawnCoin(x, y) {
+    spawnFruit(x, y) {
         if (this.isGameOver) return;
 
-        const coin = this.collectibles.create(x, y, 'coin');
-        coin.body.velocity.x = -this.gameSpeed;
-        coin.itemType = 'coin';
-        coin.value = 10;
+        // Pick a random fruit type
+        const fruitType = Phaser.Math.RND.pick(this.fruitTypes);
+        const fruit = this.collectibles.create(x, y, fruitType);
+        fruit.setScale(1.5);
+        fruit.body.velocity.x = -this.gameSpeed;
+        fruit.itemType = 'fruit';
+        fruit.fruitType = fruitType;
+        fruit.value = 10;
+
+        // Play fruit animation
+        fruit.play(`${fruitType}_anim`);
 
         // Bobbing animation
         this.tweens.add({
-            targets: coin,
+            targets: fruit,
             y: y - 10,
             duration: 500,
             yoyo: true,
@@ -394,16 +423,19 @@ class GameScene extends Phaser.Scene {
             ease: 'Sine.easeInOut'
         });
 
-        return coin;
+        return fruit;
     }
 
     spawnBook(x, y) {
         if (this.isGameOver) return;
 
-        const book = this.collectibles.create(x, y, 'book');
+        // Use melon as "special" collectible
+        const book = this.collectibles.create(x, y, 'melon');
+        book.setScale(2);
         book.body.velocity.x = -this.gameSpeed;
         book.itemType = 'book';
         book.value = 25;
+        book.play('melon_anim');
 
         return book;
     }
@@ -413,7 +445,7 @@ class GameScene extends Phaser.Scene {
 
         if (this.player.body.touching.down || this.isOnGround) {
             this.player.setVelocityY(-450);
-            this.player.setTexture('player_jump');
+            this.player.play('player_jump_anim');
             this.canJump = false;
             this.isOnGround = false;
 
@@ -428,7 +460,7 @@ class GameScene extends Phaser.Scene {
         if (player.body.touching.down) {
             this.isOnGround = true;
             this.canJump = true;
-            player.setTexture('player');
+            player.play('player_run_anim', true);
         }
     }
 
@@ -439,7 +471,7 @@ class GameScene extends Phaser.Scene {
         if (player.body.touching.down && platform.body.touching.up) {
             this.isOnGround = true;
             this.canJump = true;
-            player.setTexture('player');
+            player.play('player_idle_anim', true);
 
             // Check if correct letter
             if (platform.isCorrect) {
@@ -525,6 +557,9 @@ class GameScene extends Phaser.Scene {
         // Lose a life
         this.loseLife();
 
+        // Play hit animation
+        player.play('player_hit_anim');
+
         // Knockback
         player.setVelocityX(-150);
         player.setVelocityY(-200);
@@ -535,7 +570,12 @@ class GameScene extends Phaser.Scene {
             alpha: 0.3,
             duration: 100,
             yoyo: true,
-            repeat: 5
+            repeat: 5,
+            onComplete: () => {
+                if (!this.isGameOver) {
+                    player.play('player_idle_anim', true);
+                }
+            }
         });
 
         // Remove obstacle
@@ -554,15 +594,16 @@ class GameScene extends Phaser.Scene {
             window.AudioSynth.playCoin();
         }
 
-        // Collection effect
-        this.tweens.add({
-            targets: item,
-            y: item.y - 50,
-            alpha: 0,
-            scale: 1.5,
-            duration: 300,
-            onComplete: () => item.destroy()
+        // Play collected animation
+        const collected = this.add.sprite(item.x, item.y, 'collected');
+        collected.setScale(1.5);
+        collected.play('collected_anim');
+        collected.once('animationcomplete', () => {
+            collected.destroy();
         });
+
+        // Remove the item
+        item.destroy();
     }
 
     loseLife() {
@@ -647,6 +688,7 @@ class GameScene extends Phaser.Scene {
         // Stop player
         this.player.setVelocity(0, 0);
         this.player.body.enable = false;
+        this.player.play('player_hit_anim');
 
         // Disable controls
         this.joystick.enable = false;
@@ -664,7 +706,7 @@ class GameScene extends Phaser.Scene {
         overlay.setDepth(90);
 
         // Game Over text
-        const gameOverText = this.add.text(640, 200, 'Game Over', {
+        this.add.text(640, 200, 'Game Over', {
             fontFamily: 'Arial',
             fontSize: '72px',
             color: '#e74c3c',
@@ -693,36 +735,32 @@ class GameScene extends Phaser.Scene {
             color: '#ffffff'
         }).setOrigin(0.5).setDepth(100);
 
-        // Restart button
-        const restartBtn = this.add.image(640, 520, 'button').setInteractive().setDepth(100);
-        this.add.text(640, 520, 'Play Again', {
-            fontFamily: 'Arial',
-            fontSize: '28px',
-            color: '#2c1810',
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(101);
+        // Restart button using Pixel Adventure button
+        const restartBtn = this.add.image(640, 520, 'btn_restart')
+            .setInteractive()
+            .setDepth(100)
+            .setScale(2);
 
         restartBtn.on('pointerdown', () => {
             this.scene.restart();
         });
 
         restartBtn.on('pointerover', () => {
-            restartBtn.setScale(1.1);
+            restartBtn.setScale(2.2);
         });
 
         restartBtn.on('pointerout', () => {
-            restartBtn.setScale(1);
+            restartBtn.setScale(2);
         });
     }
 
     update(time, delta) {
         if (this.isGameOver) return;
 
-        // Parallax scrolling
-        this.dunesBack.tilePositionX += 0.5;
-        this.dunesFront.tilePositionX += 1;
+        // Parallax scrolling background
+        this.bg.tilePositionX += this.gameSpeed * 0.005;
 
-        // Handle player movement
+        // Handle player movement and animation
         this.handlePlayerMovement();
 
         // Update object velocities based on game speed
@@ -758,11 +796,30 @@ class GameScene extends Phaser.Scene {
         // Horizontal movement
         if (left) {
             this.player.setVelocityX(-250);
+            this.player.setFlipX(true);
+            if (this.isOnGround && this.player.anims.currentAnim?.key !== 'player_run_anim') {
+                this.player.play('player_run_anim', true);
+            }
         } else if (right) {
             this.player.setVelocityX(250);
+            this.player.setFlipX(false);
+            if (this.isOnGround && this.player.anims.currentAnim?.key !== 'player_run_anim') {
+                this.player.play('player_run_anim', true);
+            }
         } else {
             // Slight forward drift in endless runner
             this.player.setVelocityX(50);
+            this.player.setFlipX(false);
+            if (this.isOnGround && this.player.anims.currentAnim?.key !== 'player_idle_anim') {
+                this.player.play('player_idle_anim', true);
+            }
+        }
+
+        // Check if falling
+        if (!this.isOnGround && this.player.body.velocity.y > 0) {
+            if (this.player.anims.currentAnim?.key !== 'player_fall_anim') {
+                this.player.play('player_fall_anim', true);
+            }
         }
 
         // Jump from keyboard
@@ -795,13 +852,13 @@ class GameScene extends Phaser.Scene {
             this.obstacleInterval = Math.max(2000, this.obstacleInterval - 10);
         }
 
-        // Spawn coins
+        // Spawn fruits
         if (Phaser.Math.Between(0, 100) < 2) {
-            const coinY = this.groundY - Phaser.Math.Between(80, 200);
-            this.spawnCoin(1400, coinY);
+            const fruitY = this.groundY - Phaser.Math.Between(80, 200);
+            this.spawnFruit(1400, fruitY);
         }
 
-        // Occasional book spawn
+        // Occasional special collectible
         if (Phaser.Math.Between(0, 100) < 0.5) {
             const bookY = this.groundY - Phaser.Math.Between(100, 150);
             this.spawnBook(1400, bookY);

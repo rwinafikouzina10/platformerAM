@@ -10,8 +10,11 @@ class BootScene extends Phaser.Scene {
         // Create loading bar
         this.createLoadingBar();
 
-        // Generate placeholder assets programmatically (no external files needed)
-        this.createPlaceholderAssets();
+        // Load external assets
+        this.loadExternalAssets();
+
+        // Generate UI assets that are better procedurally created
+        this.createUIAssets();
 
         // Load audio assets (placeholder/generated)
         this.loadAudioAssets();
@@ -72,63 +75,113 @@ class BootScene extends Phaser.Scene {
         });
     }
 
-    createPlaceholderAssets() {
-        // Create all game graphics programmatically
+    loadExternalAssets() {
+        const basePath = 'assets/';
+
+        // --- PLAYER SPRITES (Ninja Frog from Pixel Adventure) ---
+        // Load as spritesheets for animation
+        this.load.spritesheet('player_idle', basePath + 'images/player/Idle (32x32).png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('player_run', basePath + 'images/player/Run (32x32).png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('player_jump', basePath + 'images/player/Jump (32x32).png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('player_fall', basePath + 'images/player/Fall (32x32).png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('player_double_jump', basePath + 'images/player/Double Jump (32x32).png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('player_hit', basePath + 'images/player/Hit (32x32).png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+
+        // --- BACKGROUNDS ---
+        this.load.image('bg_yellow', basePath + 'images/background/Yellow.png');
+        this.load.image('bg_blue', basePath + 'images/background/Blue.png');
+        this.load.image('bg_brown', basePath + 'images/background/Brown.png');
+
+        // --- TERRAIN TILES (Kenney Sand) ---
+        this.load.image('sand_left', basePath + 'images/terrain/sandLeft.png');
+        this.load.image('sand_mid', basePath + 'images/terrain/sandMid.png');
+        this.load.image('sand_right', basePath + 'images/terrain/sandRight.png');
+        this.load.image('sand_center', basePath + 'images/terrain/sandCenter.png');
+        this.load.image('sand_half', basePath + 'images/terrain/sandHalf.png');
+        this.load.image('sand_half_left', basePath + 'images/terrain/sandHalfLeft.png');
+        this.load.image('sand_half_mid', basePath + 'images/terrain/sandHalfMid.png');
+        this.load.image('sand_half_right', basePath + 'images/terrain/sandHalfRight.png');
+        this.load.image('sand_hill_left', basePath + 'images/terrain/sandHillLeft.png');
+        this.load.image('sand_hill_right', basePath + 'images/terrain/sandHillRight.png');
+
+        // --- COLLECTIBLES (Fruits from Pixel Adventure) ---
+        this.load.spritesheet('apple', basePath + 'images/items/Apple.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('banana', basePath + 'images/items/Bananas.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('cherry', basePath + 'images/items/Cherries.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('orange', basePath + 'images/items/Orange.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('melon', basePath + 'images/items/Melon.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('kiwi', basePath + 'images/items/Kiwi.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('strawberry', basePath + 'images/items/Strawberry.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('collected', basePath + 'images/items/Collected.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+
+        // Coin animation
+        this.load.image('coin1', basePath + 'images/items/star coin rotate 1.png');
+        this.load.image('coin2', basePath + 'images/items/star coin rotate 2.png');
+        this.load.image('coin3', basePath + 'images/items/star coin rotate 3.png');
+        this.load.image('coin4', basePath + 'images/items/star coin rotate 4.png');
+        this.load.image('coin5', basePath + 'images/items/star coin rotate 5.png');
+        this.load.image('coin6', basePath + 'images/items/star coin rotate 6.png');
+
+        // --- OBSTACLES/ENEMIES ---
+        this.load.image('spikes', basePath + 'images/enemies/spikes.png');
+        this.load.image('slime', basePath + 'images/enemies/slime.png');
+        this.load.image('slime_walk', basePath + 'images/enemies/slime_walk.png');
+
+        // --- UI BUTTONS ---
+        this.load.image('btn_play', basePath + 'images/ui/Play.png');
+        this.load.image('btn_restart', basePath + 'images/ui/Restart.png');
+        this.load.image('btn_back', basePath + 'images/ui/Back.png');
+        this.load.image('btn_settings', basePath + 'images/ui/Settings.png');
+        this.load.image('btn_next', basePath + 'images/ui/Next.png');
+        this.load.image('btn_previous', basePath + 'images/ui/Previous.png');
+        this.load.image('btn_close', basePath + 'images/ui/Close.png');
+    }
+
+    createUIAssets() {
+        // Create UI assets that work better as procedural graphics
         const graphics = this.make.graphics({ x: 0, y: 0, add: false });
-
-        // --- PLAYER SPRITE (Simple character) ---
-        graphics.clear();
-        // Body (desert robe color)
-        graphics.fillStyle(0xd4a574);
-        graphics.fillRoundedRect(16, 20, 32, 40, 5);
-        // Head
-        graphics.fillStyle(0xf5deb3);
-        graphics.fillCircle(32, 15, 12);
-        // Eyes
-        graphics.fillStyle(0x2c1810);
-        graphics.fillCircle(28, 13, 2);
-        graphics.fillCircle(36, 13, 2);
-        // Smile
-        graphics.lineStyle(2, 0x2c1810);
-        graphics.beginPath();
-        graphics.arc(32, 17, 5, 0.2, Math.PI - 0.2);
-        graphics.strokePath();
-        // Headscarf/Keffiyeh
-        graphics.fillStyle(0xffffff);
-        graphics.fillTriangle(20, 10, 32, 0, 44, 10);
-        graphics.generateTexture('player', 64, 64);
-
-        // --- PLAYER JUMP SPRITE ---
-        graphics.clear();
-        graphics.fillStyle(0xd4a574);
-        graphics.fillRoundedRect(16, 15, 32, 40, 5);
-        graphics.fillStyle(0xf5deb3);
-        graphics.fillCircle(32, 10, 12);
-        graphics.fillStyle(0x2c1810);
-        graphics.fillCircle(28, 8, 2);
-        graphics.fillCircle(36, 8, 2);
-        graphics.fillStyle(0xffffff);
-        graphics.fillTriangle(20, 5, 32, -5, 44, 5);
-        // Arms up
-        graphics.fillStyle(0xf5deb3);
-        graphics.fillRect(10, 20, 8, 4);
-        graphics.fillRect(46, 20, 8, 4);
-        graphics.generateTexture('player_jump', 64, 64);
-
-        // --- GROUND TILE (Sand) ---
-        graphics.clear();
-        graphics.fillStyle(0xf4d03f);
-        graphics.fillRect(0, 0, 64, 64);
-        // Sand texture dots
-        graphics.fillStyle(0xe6c229);
-        for (let i = 0; i < 20; i++) {
-            graphics.fillCircle(
-                Phaser.Math.Between(0, 64),
-                Phaser.Math.Between(0, 64),
-                Phaser.Math.Between(1, 3)
-            );
-        }
-        graphics.generateTexture('ground', 64, 64);
 
         // --- PLATFORM (Floating sand block) ---
         graphics.clear();
@@ -136,7 +189,6 @@ class BootScene extends Phaser.Scene {
         graphics.fillRoundedRect(0, 0, 150, 40, 8);
         graphics.fillStyle(0xf4d03f);
         graphics.fillRoundedRect(2, 2, 146, 36, 6);
-        // Platform decoration
         graphics.fillStyle(0xe6c229);
         graphics.fillRect(10, 15, 130, 3);
         graphics.generateTexture('platform', 150, 40);
@@ -157,18 +209,78 @@ class BootScene extends Phaser.Scene {
         graphics.fillRoundedRect(2, 2, 146, 36, 6);
         graphics.generateTexture('platform_wrong', 150, 40);
 
-        // --- CACTUS (Obstacle) ---
+        // --- Score panel ---
+        graphics.clear();
+        graphics.fillStyle(0x000000, 0.5);
+        graphics.fillRoundedRect(0, 0, 200, 50, 10);
+        graphics.lineStyle(3, 0xf4d03f);
+        graphics.strokeRoundedRect(0, 0, 200, 50, 10);
+        graphics.generateTexture('score_panel', 200, 50);
+
+        // --- Letter card ---
+        graphics.clear();
+        graphics.fillStyle(0xffffff);
+        graphics.fillRoundedRect(0, 0, 120, 120, 15);
+        graphics.lineStyle(4, 0xf4d03f);
+        graphics.strokeRoundedRect(2, 2, 116, 116, 13);
+        graphics.generateTexture('letter_card', 120, 120);
+
+        // --- Joystick base ---
+        graphics.clear();
+        graphics.fillStyle(0x000000, 0.3);
+        graphics.fillCircle(50, 50, 50);
+        graphics.lineStyle(2, 0xffffff, 0.5);
+        graphics.strokeCircle(50, 50, 48);
+        graphics.generateTexture('joystick_base', 100, 100);
+
+        // --- Joystick thumb ---
+        graphics.clear();
+        graphics.fillStyle(0xffffff, 0.6);
+        graphics.fillCircle(25, 25, 25);
+        graphics.generateTexture('joystick_thumb', 50, 50);
+
+        // --- Jump button ---
+        graphics.clear();
+        graphics.fillStyle(0x3498db, 0.5);
+        graphics.fillCircle(40, 40, 40);
+        graphics.lineStyle(3, 0xffffff, 0.7);
+        graphics.strokeCircle(40, 40, 38);
+        graphics.fillStyle(0xffffff, 0.8);
+        graphics.fillTriangle(40, 15, 20, 45, 60, 45);
+        graphics.generateTexture('jump_button', 80, 80);
+
+        // --- Star (for feedback) ---
+        graphics.clear();
+        graphics.fillStyle(0xf4d03f);
+        graphics.fillStar(30, 30, 5, 28, 14);
+        graphics.fillStyle(0xf39c12);
+        graphics.fillStar(30, 30, 5, 20, 10);
+        graphics.generateTexture('star', 60, 60);
+
+        // --- Heart (lives) ---
+        graphics.clear();
+        graphics.fillStyle(0xe74c3c);
+        graphics.fillCircle(12, 12, 10);
+        graphics.fillCircle(28, 12, 10);
+        graphics.fillTriangle(2, 15, 38, 15, 20, 38);
+        graphics.generateTexture('heart', 40, 40);
+
+        // --- Game Over Button ---
+        graphics.clear();
+        graphics.fillStyle(0xf4d03f);
+        graphics.fillRoundedRect(0, 0, 200, 60, 10);
+        graphics.fillStyle(0xe6c229);
+        graphics.fillRoundedRect(5, 5, 190, 50, 8);
+        graphics.generateTexture('button', 200, 60);
+
+        // --- CACTUS (Obstacle) - procedural fallback ---
         graphics.clear();
         graphics.fillStyle(0x27ae60);
-        // Main stem
         graphics.fillRoundedRect(20, 20, 20, 60, 5);
-        // Left arm
         graphics.fillRoundedRect(5, 30, 15, 8, 3);
         graphics.fillRoundedRect(5, 20, 8, 18, 3);
-        // Right arm
         graphics.fillRoundedRect(40, 40, 15, 8, 3);
         graphics.fillRoundedRect(47, 30, 8, 18, 3);
-        // Spikes (dots)
         graphics.fillStyle(0x1e8449);
         for (let y = 25; y < 75; y += 8) {
             graphics.fillCircle(22, y, 2);
@@ -176,94 +288,14 @@ class BootScene extends Phaser.Scene {
         }
         graphics.generateTexture('cactus', 60, 80);
 
-        // --- COIN (Golden) ---
-        graphics.clear();
-        graphics.fillStyle(0xf39c12);
-        graphics.fillCircle(16, 16, 14);
-        graphics.fillStyle(0xf4d03f);
-        graphics.fillCircle(16, 16, 10);
-        graphics.fillStyle(0xf39c12);
-        graphics.fillCircle(16, 16, 6);
-        // Star shape in center
-        graphics.fillStyle(0xf4d03f);
-        graphics.fillStar(16, 16, 5, 4, 2);
-        graphics.generateTexture('coin', 32, 32);
-
-        // --- INK DROP (For learning) ---
-        graphics.clear();
-        graphics.fillStyle(0x3498db);
-        graphics.fillCircle(16, 20, 12);
-        graphics.fillTriangle(16, 4, 8, 16, 24, 16);
-        graphics.fillStyle(0x5dade2);
-        graphics.fillCircle(12, 18, 4);
-        graphics.generateTexture('ink_drop', 32, 40);
-
-        // --- BOOK (Collectible) ---
-        graphics.clear();
-        graphics.fillStyle(0x8b4513);
-        graphics.fillRoundedRect(2, 5, 36, 30, 3);
-        graphics.fillStyle(0xf4d03f);
-        graphics.fillRect(5, 8, 30, 24);
-        graphics.fillStyle(0x8b4513);
-        graphics.fillRect(18, 8, 4, 24);
-        // Arabic text hint
-        graphics.fillStyle(0x2c1810);
-        graphics.fillRect(8, 12, 8, 2);
-        graphics.fillRect(8, 18, 8, 2);
-        graphics.fillRect(24, 12, 8, 2);
-        graphics.fillRect(24, 18, 8, 2);
-        graphics.generateTexture('book', 40, 40);
-
-        // --- BACKGROUND LAYERS ---
-        // Sky gradient
-        graphics.clear();
-        const skyGradient = graphics.createLinearGradient(0, 0, 0, 720);
-        skyGradient.addColorStop(0, '#87CEEB');
-        skyGradient.addColorStop(0.5, '#98D8E8');
-        skyGradient.addColorStop(1, '#F4D03F');
-        graphics.fillGradientStyle(0x87CEEB, 0x87CEEB, 0xF4D03F, 0xF4D03F);
-        graphics.fillRect(0, 0, 1280, 720);
-        graphics.generateTexture('sky', 1280, 720);
-
-        // Dunes (background)
-        graphics.clear();
-        graphics.fillStyle(0xdeb887, 0.6);
-        graphics.beginPath();
-        graphics.moveTo(0, 400);
-        for (let x = 0; x <= 1280; x += 160) {
-            graphics.lineTo(x, 350 + Math.sin(x / 100) * 50);
-        }
-        graphics.lineTo(1280, 720);
-        graphics.lineTo(0, 720);
-        graphics.closePath();
-        graphics.fillPath();
-        graphics.generateTexture('dunes_back', 1280, 720);
-
-        // Dunes (foreground)
-        graphics.clear();
-        graphics.fillStyle(0xf4d03f, 0.8);
-        graphics.beginPath();
-        graphics.moveTo(0, 500);
-        for (let x = 0; x <= 1280; x += 100) {
-            graphics.lineTo(x, 450 + Math.sin(x / 80) * 40);
-        }
-        graphics.lineTo(1280, 720);
-        graphics.lineTo(0, 720);
-        graphics.closePath();
-        graphics.fillPath();
-        graphics.generateTexture('dunes_front', 1280, 720);
-
         // --- PALM TREE ---
         graphics.clear();
-        // Trunk
         graphics.fillStyle(0x8b4513);
         graphics.fillRect(35, 60, 20, 100);
-        // Trunk texture
         graphics.fillStyle(0x6b3610);
         for (let y = 65; y < 155; y += 12) {
             graphics.fillRect(35, y, 20, 3);
         }
-        // Leaves
         graphics.fillStyle(0x228b22);
         graphics.fillTriangle(45, 20, 0, 70, 45, 60);
         graphics.fillTriangle(45, 20, 90, 70, 45, 60);
@@ -281,83 +313,26 @@ class BootScene extends Phaser.Scene {
         graphics.fillEllipse(50, 25, 60, 20);
         graphics.generateTexture('oasis', 120, 60);
 
-        // --- UI ELEMENTS ---
-        // Button
+        // --- Fallback ground tile ---
         graphics.clear();
         graphics.fillStyle(0xf4d03f);
-        graphics.fillRoundedRect(0, 0, 200, 60, 10);
+        graphics.fillRect(0, 0, 70, 70);
         graphics.fillStyle(0xe6c229);
-        graphics.fillRoundedRect(5, 5, 190, 50, 8);
-        graphics.generateTexture('button', 200, 60);
-
-        // Score panel
-        graphics.clear();
-        graphics.fillStyle(0x000000, 0.5);
-        graphics.fillRoundedRect(0, 0, 200, 50, 10);
-        graphics.lineStyle(3, 0xf4d03f);
-        graphics.strokeRoundedRect(0, 0, 200, 50, 10);
-        graphics.generateTexture('score_panel', 200, 50);
-
-        // Letter card
-        graphics.clear();
-        graphics.fillStyle(0xffffff);
-        graphics.fillRoundedRect(0, 0, 120, 120, 15);
-        graphics.lineStyle(4, 0xf4d03f);
-        graphics.strokeRoundedRect(2, 2, 116, 116, 13);
-        graphics.generateTexture('letter_card', 120, 120);
-
-        // Joystick base
-        graphics.clear();
-        graphics.fillStyle(0x000000, 0.3);
-        graphics.fillCircle(50, 50, 50);
-        graphics.lineStyle(2, 0xffffff, 0.5);
-        graphics.strokeCircle(50, 50, 48);
-        graphics.generateTexture('joystick_base', 100, 100);
-
-        // Joystick thumb
-        graphics.clear();
-        graphics.fillStyle(0xffffff, 0.6);
-        graphics.fillCircle(25, 25, 25);
-        graphics.generateTexture('joystick_thumb', 50, 50);
-
-        // Jump button
-        graphics.clear();
-        graphics.fillStyle(0x3498db, 0.5);
-        graphics.fillCircle(40, 40, 40);
-        graphics.lineStyle(3, 0xffffff, 0.7);
-        graphics.strokeCircle(40, 40, 38);
-        // Arrow up
-        graphics.fillStyle(0xffffff, 0.8);
-        graphics.fillTriangle(40, 15, 20, 45, 60, 45);
-        graphics.generateTexture('jump_button', 80, 80);
-
-        // Star (for feedback)
-        graphics.clear();
-        graphics.fillStyle(0xf4d03f);
-        graphics.fillStar(30, 30, 5, 28, 14);
-        graphics.fillStyle(0xf39c12);
-        graphics.fillStar(30, 30, 5, 20, 10);
-        graphics.generateTexture('star', 60, 60);
-
-        // Heart (lives)
-        graphics.clear();
-        graphics.fillStyle(0xe74c3c);
-        graphics.fillCircle(12, 12, 10);
-        graphics.fillCircle(28, 12, 10);
-        graphics.fillTriangle(2, 15, 38, 15, 20, 38);
-        graphics.generateTexture('heart', 40, 40);
+        for (let i = 0; i < 20; i++) {
+            graphics.fillCircle(
+                Phaser.Math.Between(0, 70),
+                Phaser.Math.Between(0, 70),
+                Phaser.Math.Between(1, 3)
+            );
+        }
+        graphics.generateTexture('ground', 70, 70);
 
         graphics.destroy();
     }
 
     loadAudioAssets() {
-        // For MVP, we'll create simple audio using Web Audio API in GameScene
-        // This avoids needing external audio files
-
-        // Placeholder: Create silent audio data URL
+        // Placeholder audio
         const silentAudio = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-
-        // Load placeholder sounds (will be replaced with Web Audio synthesis)
         this.load.audio('jump', silentAudio);
         this.load.audio('correct', silentAudio);
         this.load.audio('wrong', silentAudio);
@@ -365,6 +340,9 @@ class BootScene extends Phaser.Scene {
     }
 
     create() {
+        // Create animations from spritesheets
+        this.createAnimations();
+
         // Set up Web Audio context for sound synthesis
         this.createSoundSynthesizer();
 
@@ -374,6 +352,70 @@ class BootScene extends Phaser.Scene {
             this.cameras.main.once('camerafadeoutcomplete', () => {
                 this.scene.start('GameScene');
             });
+        });
+    }
+
+    createAnimations() {
+        // Player animations
+        this.anims.create({
+            key: 'player_idle_anim',
+            frames: this.anims.generateFrameNumbers('player_idle', { start: 0, end: 10 }),
+            frameRate: 20,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: 'player_run_anim',
+            frames: this.anims.generateFrameNumbers('player_run', { start: 0, end: 11 }),
+            frameRate: 20,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: 'player_jump_anim',
+            frames: this.anims.generateFrameNumbers('player_jump', { start: 0, end: 0 }),
+            frameRate: 20,
+            repeat: 0
+        });
+
+        this.anims.create({
+            key: 'player_fall_anim',
+            frames: this.anims.generateFrameNumbers('player_fall', { start: 0, end: 0 }),
+            frameRate: 20,
+            repeat: 0
+        });
+
+        this.anims.create({
+            key: 'player_double_jump_anim',
+            frames: this.anims.generateFrameNumbers('player_double_jump', { start: 0, end: 5 }),
+            frameRate: 20,
+            repeat: 0
+        });
+
+        this.anims.create({
+            key: 'player_hit_anim',
+            frames: this.anims.generateFrameNumbers('player_hit', { start: 0, end: 6 }),
+            frameRate: 20,
+            repeat: 0
+        });
+
+        // Fruit animations
+        const fruits = ['apple', 'banana', 'cherry', 'orange', 'melon', 'kiwi', 'strawberry'];
+        fruits.forEach(fruit => {
+            this.anims.create({
+                key: `${fruit}_anim`,
+                frames: this.anims.generateFrameNumbers(fruit, { start: 0, end: 16 }),
+                frameRate: 20,
+                repeat: -1
+            });
+        });
+
+        // Collected animation
+        this.anims.create({
+            key: 'collected_anim',
+            frames: this.anims.generateFrameNumbers('collected', { start: 0, end: 5 }),
+            frameRate: 20,
+            repeat: 0
         });
     }
 
@@ -413,9 +455,9 @@ class BootScene extends Phaser.Scene {
             },
 
             playCorrect() {
-                this.playTone(523, 0.15, 'sine', 0.3); // C5
-                setTimeout(() => this.playTone(659, 0.15, 'sine', 0.3), 100); // E5
-                setTimeout(() => this.playTone(784, 0.2, 'sine', 0.3), 200); // G5
+                this.playTone(523, 0.15, 'sine', 0.3);
+                setTimeout(() => this.playTone(659, 0.15, 'sine', 0.3), 100);
+                setTimeout(() => this.playTone(784, 0.2, 'sine', 0.3), 200);
             },
 
             playWrong() {
@@ -423,11 +465,10 @@ class BootScene extends Phaser.Scene {
             },
 
             playCoin() {
-                this.playTone(988, 0.1, 'sine', 0.2); // B5
-                setTimeout(() => this.playTone(1319, 0.15, 'sine', 0.2), 80); // E6
+                this.playTone(988, 0.1, 'sine', 0.2);
+                setTimeout(() => this.playTone(1319, 0.15, 'sine', 0.2), 80);
             },
 
-            // Speak Arabic letter using Web Speech API if available
             speakLetter(letter, letterName) {
                 if ('speechSynthesis' in window) {
                     const utterance = new SpeechSynthesisUtterance(letter);
@@ -436,7 +477,6 @@ class BootScene extends Phaser.Scene {
                     utterance.pitch = 1.2;
                     speechSynthesis.speak(utterance);
                 } else {
-                    // Fallback: play a tone sequence
                     this.playTone(440, 0.2, 'sine', 0.3);
                 }
             }
