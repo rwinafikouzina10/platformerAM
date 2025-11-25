@@ -349,7 +349,7 @@ class GameScene extends Phaser.Scene {
 
         // Spawn 3 letters with wide horizontal spacing (one correct, two wrong)
         const numLetters = 3;
-        const spacing = 500; // Wide spacing between each letter
+        const spacing = 250; // 250px spacing between each letter
         const positions = [];
 
         // Generate positions - spread out horizontally, same height band
