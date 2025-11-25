@@ -67,25 +67,53 @@ class GameScene extends Phaser.Scene {
     }
 
     createBackground() {
-        // Different background per level
-        let bgKey;
-        switch (this.currentLevel) {
-            case 1:
-                bgKey = 'bg_yellow'; // Desert/sand for beginners
-                break;
-            case 2:
-                bgKey = 'bg_blue'; // Sky/ocean for intermediate
-                break;
-            case 3:
-                bgKey = 'bg_brown'; // Earth/advanced
-                break;
-            default:
-                bgKey = 'bg_yellow';
+        // Create beautiful multi-layer parallax scrolling background
+        // Each layer scrolls at different speed for depth effect
+
+        // Sky gradient background (static base)
+        const skyColor = this.currentLevel === 2 ? 0x87CEEB :
+                        this.currentLevel === 3 ? 0xE8D4B8 : 0xF5DEB3;
+        this.add.rectangle(640, 360, 1280, 720, skyColor);
+
+        // Parallax layers array - ordered from back to front
+        // Each layer has: key, yPosition, scrollSpeed (slower = further)
+        this.parallaxLayers = [];
+
+        // Mountains (furthest back, slowest scroll)
+        const mountains = this.add.tileSprite(640, 360, 1280, 720, 'parallax_mountains');
+        mountains.setScrollFactor(0);
+        mountains.scrollSpeed = 0.02; // Very slow - distant
+        this.parallaxLayers.push(mountains);
+
+        // Far rocky terrain
+        const far = this.add.tileSprite(640, 360, 1280, 720, 'parallax_far');
+        far.setScrollFactor(0);
+        far.scrollSpeed = 0.05; // Slow
+        this.parallaxLayers.push(far);
+
+        // Mid rocky terrain
+        const mid = this.add.tileSprite(640, 360, 1280, 720, 'parallax_mid');
+        mid.setScrollFactor(0);
+        mid.scrollSpeed = 0.08; // Medium
+        this.parallaxLayers.push(mid);
+
+        // Close rocky terrain (closest, fastest scroll)
+        const close = this.add.tileSprite(640, 360, 1280, 720, 'parallax_close');
+        close.setScrollFactor(0);
+        close.scrollSpeed = 0.12; // Faster - closer
+        this.parallaxLayers.push(close);
+
+        // Apply color tint based on level for variety
+        if (this.currentLevel === 2) {
+            // Cooler blue-ish tint for level 2
+            this.parallaxLayers.forEach(layer => layer.setTint(0xC4D4E0));
+        } else if (this.currentLevel === 3) {
+            // Warmer sunset tint for level 3
+            this.parallaxLayers.forEach(layer => layer.setTint(0xFFD4A0));
         }
 
-        // Tiled background that scrolls
-        this.bg = this.add.tileSprite(640, 360, 1280, 720, bgKey);
-        this.bg.setScrollFactor(0);
+        // Keep bg reference for compatibility (points to closest layer)
+        this.bg = close;
 
         // Add decorative elements (palm trees, oasis)
         this.decorations = this.add.group();
@@ -967,8 +995,11 @@ class GameScene extends Phaser.Scene {
     update(time, delta) {
         if (this.isGameOver) return;
 
-        // Parallax scrolling background - synced with game speed
-        this.bg.tilePositionX += this.gameSpeed * 0.15;
+        // Parallax scrolling - each layer at different speed for depth effect
+        // Synced with game speed for realistic movement
+        this.parallaxLayers.forEach(layer => {
+            layer.tilePositionX += this.gameSpeed * layer.scrollSpeed;
+        });
 
         // Handle player movement and animation
         this.handlePlayerMovement();

@@ -116,6 +116,12 @@ class BootScene extends Phaser.Scene {
         this.load.image('bg_blue', basePath + 'images/background/Blue.png');
         this.load.image('bg_brown', basePath + 'images/background/Brown.png');
 
+        // --- PARALLAX BACKGROUNDS (Rocky Desert) ---
+        this.load.image('parallax_mountains', basePath + 'images/parallax/rocky-mountains.png');
+        this.load.image('parallax_far', basePath + 'images/parallax/rocky-far.png');
+        this.load.image('parallax_mid', basePath + 'images/parallax/rocky-mid.png');
+        this.load.image('parallax_close', basePath + 'images/parallax/rocky-close.png');
+
         // --- TERRAIN TILES (Kenney Sand) ---
         this.load.image('sand_left', basePath + 'images/terrain/sandLeft.png');
         this.load.image('sand_mid', basePath + 'images/terrain/sandMid.png');
