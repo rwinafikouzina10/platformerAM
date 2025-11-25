@@ -256,12 +256,15 @@ class BootScene extends Phaser.Scene {
         graphics.fillTriangle(40, 15, 20, 45, 60, 45);
         graphics.generateTexture('jump_button', 80, 80);
 
-        // --- Star (for feedback) ---
+        // --- Star (for feedback) - draw using polygon points ---
         graphics.clear();
         graphics.fillStyle(0xf4d03f);
-        graphics.fillStar(30, 30, 5, 28, 14);
+        // Draw a 5-pointed star manually
+        const starPoints = this.getStarPoints(30, 30, 5, 28, 14);
+        graphics.fillPoints(starPoints, true);
         graphics.fillStyle(0xf39c12);
-        graphics.fillStar(30, 30, 5, 20, 10);
+        const innerStarPoints = this.getStarPoints(30, 30, 5, 20, 10);
+        graphics.fillPoints(innerStarPoints, true);
         graphics.generateTexture('star', 60, 60);
 
         // --- Heart (lives) ---
@@ -488,5 +491,22 @@ class BootScene extends Phaser.Scene {
                 }
             }
         };
+    }
+
+    // Helper function to generate star polygon points
+    getStarPoints(cx, cy, points, outerRadius, innerRadius) {
+        const result = [];
+        const step = Math.PI / points;
+        let angle = -Math.PI / 2; // Start from top
+
+        for (let i = 0; i < points * 2; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            result.push({
+                x: cx + Math.cos(angle) * radius,
+                y: cy + Math.sin(angle) * radius
+            });
+            angle += step;
+        }
+        return result;
     }
 }
