@@ -879,13 +879,16 @@ class GameScene extends Phaser.Scene {
         // Spawn floating letters periodically (if we have a target and haven't completed it)
         if (this.currentTarget && this.correctCollections < this.requiredCollections) {
             if (time - this.lastPlatformTime > this.platformInterval) {
-                // Only spawn if no letters currently on screen (wait for previous group to pass)
-                if (this.floatingLetters.getChildren().length === 0) {
+                // Spawn new group when previous group has moved past halfway point
+                const existingLetters = this.floatingLetters.getChildren();
+                const canSpawn = existingLetters.length === 0 ||
+                    existingLetters.every(l => l.x < 700); // Past center of screen
+
+                if (canSpawn) {
                     this.spawnFloatingLetters();
+                    this.lastPlatformTime = time;
+                    this.platformInterval = 2000; // 2 second minimum between groups
                 }
-                this.lastPlatformTime = time;
-                // Check again soon
-                this.platformInterval = 500;
             }
         }
     }
