@@ -531,11 +531,11 @@ class GameScene extends Phaser.Scene {
         const positions = [];
 
         // Generate positions - spread out horizontally, reachable height
-        // 150-200px above ground is jumpable but not too low
+        // 220-280px above ground - high enough to require jumping, won't hit standing player
         for (let i = 0; i < numLetters; i++) {
             positions.push({
                 x: baseX + (i * spacing),
-                y: this.groundY - Phaser.Math.Between(150, 200)
+                y: this.groundY - Phaser.Math.Between(220, 280)
             });
         }
 

@@ -452,12 +452,13 @@ class BootScene extends Phaser.Scene {
 
                 // Unlock Speech Synthesis on tablets (must be triggered by user gesture)
                 if (!this.speechUnlocked && 'speechSynthesis' in window) {
-                    // Speak empty string to unlock - this must happen during user tap
-                    const emptyUtterance = new SpeechSynthesisUtterance('');
-                    emptyUtterance.volume = 0;
-                    speechSynthesis.speak(emptyUtterance);
+                    // iOS requires actual content (not empty string) to unlock
+                    const unlockUtterance = new SpeechSynthesisUtterance(' ');
+                    unlockUtterance.volume = 0.01; // Nearly silent but not zero (iOS quirk)
+                    unlockUtterance.rate = 10; // Fast to minimize delay
+                    speechSynthesis.speak(unlockUtterance);
 
-                    // Also pre-load voices
+                    // Pre-load voices (iOS loads them lazily)
                     speechSynthesis.getVoices();
 
                     this.speechUnlocked = true;
@@ -509,29 +510,32 @@ class BootScene extends Phaser.Scene {
                 this.unlock();
 
                 if ('speechSynthesis' in window) {
-                    // Cancel any pending speech
+                    // Cancel any pending speech - with small delay for iOS
                     speechSynthesis.cancel();
 
-                    const utterance = new SpeechSynthesisUtterance(letter);
-                    utterance.lang = 'ar-SA';
-                    utterance.rate = 0.8;
-                    utterance.pitch = 1.2;
+                    // Small delay to let cancel complete (iOS needs this)
+                    setTimeout(() => {
+                        const utterance = new SpeechSynthesisUtterance(letter);
+                        utterance.lang = 'ar';
+                        utterance.rate = 0.7;
+                        utterance.pitch = 1.1;
+                        utterance.volume = 1.0;
 
-                    // On some devices, we need to wait for voices to load
-                    const speak = () => {
+                        // Try to find an Arabic voice
                         const voices = speechSynthesis.getVoices();
-                        const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
+                        const arabicVoice = voices.find(v =>
+                            v.lang.startsWith('ar') ||
+                            v.lang === 'ar-SA' ||
+                            v.lang === 'ar_SA'
+                        );
+
                         if (arabicVoice) {
                             utterance.voice = arabicVoice;
                         }
-                        speechSynthesis.speak(utterance);
-                    };
 
-                    if (speechSynthesis.getVoices().length > 0) {
-                        speak();
-                    } else {
-                        speechSynthesis.onvoiceschanged = speak;
-                    }
+                        // Speak the letter
+                        speechSynthesis.speak(utterance);
+                    }, 50);
                 } else {
                     this.playTone(440, 0.2, 'sine', 0.3);
                 }
