@@ -745,7 +745,7 @@ class GameScene extends Phaser.Scene {
         if (this.isGameOver || !this.canJump) return;
 
         if (this.player.body.touching.down || this.isOnGround) {
-            this.player.setVelocityY(-450);
+            this.player.setVelocityY(-550);
             this.player.play('player_jump_anim');
             this.canJump = false;
             this.isOnGround = false;
