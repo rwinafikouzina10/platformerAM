@@ -173,6 +173,26 @@ class BootScene extends Phaser.Scene {
         this.load.image('btn_next', basePath + 'images/ui/Next.png');
         this.load.image('btn_previous', basePath + 'images/ui/Previous.png');
         this.load.image('btn_close', basePath + 'images/ui/Close.png');
+
+        // --- ARABIC LETTER AUDIO ---
+        const letterSounds = [
+            'alif', 'ba', 'ta', 'tha', 'jeem', 'ha', 'kha', 'dal', 'thal',
+            'ra', 'zay', 'seen', 'sheen', 'sad', 'dad', 'taa', 'zaa',
+            'ain', 'ghain', 'fa', 'qaf', 'kaf', 'lam', 'meem', 'noon',
+            'haa', 'waw', 'ya'
+        ];
+        letterSounds.forEach(sound => {
+            this.load.audio(`letter_${sound}`, basePath + `audio/letters/${sound}.mp3`);
+        });
+
+        // Letters with harakat (first 10 letters)
+        const harakatLetters = ['alif', 'ba', 'ta', 'tha', 'jeem', 'ha', 'kha', 'dal', 'thal', 'ra'];
+        const harakatTypes = ['fatha', 'kasra', 'damma'];
+        harakatLetters.forEach(letter => {
+            harakatTypes.forEach(haraka => {
+                this.load.audio(`letter_${letter}_${haraka}`, basePath + `audio/letters/${letter}_${haraka}.mp3`);
+            });
+        });
     }
 
     createUIAssets() {
@@ -505,38 +525,19 @@ class BootScene extends Phaser.Scene {
                 setTimeout(() => this.playTone(1319, 0.15, 'sine', 0.2), 80);
             },
 
-            speakLetter(letter, letterName) {
+            speakLetter(soundKey, scene) {
                 // Unlock audio context first
                 this.unlock();
 
-                if ('speechSynthesis' in window) {
-                    // Cancel any pending speech - with small delay for iOS
-                    speechSynthesis.cancel();
+                // Use pre-recorded audio files instead of TTS
+                // soundKey format: 'alif', 'ba', 'ta_fatha', etc.
+                const audioKey = `letter_${soundKey}`;
 
-                    // Small delay to let cancel complete (iOS needs this)
-                    setTimeout(() => {
-                        const utterance = new SpeechSynthesisUtterance(letter);
-                        utterance.lang = 'ar';
-                        utterance.rate = 0.7;
-                        utterance.pitch = 1.1;
-                        utterance.volume = 1.0;
-
-                        // Try to find an Arabic voice
-                        const voices = speechSynthesis.getVoices();
-                        const arabicVoice = voices.find(v =>
-                            v.lang.startsWith('ar') ||
-                            v.lang === 'ar-SA' ||
-                            v.lang === 'ar_SA'
-                        );
-
-                        if (arabicVoice) {
-                            utterance.voice = arabicVoice;
-                        }
-
-                        // Speak the letter
-                        speechSynthesis.speak(utterance);
-                    }, 50);
+                if (scene && scene.sound && scene.cache.audio.exists(audioKey)) {
+                    scene.sound.play(audioKey, { volume: 1.0 });
                 } else {
+                    // Fallback: play a tone if audio not found
+                    console.warn(`Audio not found: ${audioKey}`);
                     this.playTone(440, 0.2, 'sine', 0.3);
                 }
             }

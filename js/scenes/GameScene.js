@@ -239,7 +239,7 @@ class GameScene extends Phaser.Scene {
 
         this.listenAgainBtn.on('pointerdown', () => {
             if (window.AudioSynth && this.currentTarget) {
-                window.AudioSynth.speakLetter(this.targetLetter, this.currentTarget.name);
+                window.AudioSynth.speakLetter(this.currentTarget.sound, this);
                 // Visual feedback
                 this.listenAgainBtn.setScale(0.9);
                 this.time.delayedCall(100, () => this.listenAgainBtn.setScale(1));
@@ -411,7 +411,7 @@ class GameScene extends Phaser.Scene {
 
         // Speak the letter (audio only - no visual)
         if (window.AudioSynth) {
-            window.AudioSynth.speakLetter(this.targetLetter, this.currentTarget.name);
+            window.AudioSynth.speakLetter(this.currentTarget.sound, this);
         }
 
         // Show feedback in Dutch: "Listen carefully!" (no letter shown)
@@ -671,7 +671,7 @@ class GameScene extends Phaser.Scene {
             // Speak the correct letter again
             this.time.delayedCall(800, () => {
                 if (window.AudioSynth && this.currentTarget) {
-                    window.AudioSynth.speakLetter(this.targetLetter, this.currentTarget.name);
+                    window.AudioSynth.speakLetter(this.currentTarget.sound, this);
                 }
             });
         }
