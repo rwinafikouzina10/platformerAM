@@ -584,23 +584,22 @@ class GameScene extends Phaser.Scene {
     createFloatingLetter(x, y, letter, isCorrect) {
         // Create a container-like object using a graphics background + text
         // All letters look the same - player must identify by sound!
-        // Large circle (50px radius) to fit Arabic letters including descenders
-        const bg = this.add.circle(x, y, 50, 0xf4d03f, 0.9);
+        // Circle radius 60px (120px diameter) to fit all Arabic letters
+        const bg = this.add.circle(x, y, 60, 0xf4d03f, 0.9);
         bg.setStrokeStyle(3, 0x8b4513);
 
-        // Font sized and positioned to fit all Arabic letter forms
-        // Shifted up more (-8) to accommodate letters with parts below baseline
-        const letterText = this.add.text(x, y - 8, letter, {
+        // Arabic text centered in circle - smaller font to fit within bounds
+        const letterText = this.add.text(x, y, letter, {
             fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '32px',
+            fontSize: '40px',
             color: '#2c1810',
             fontStyle: 'bold'
-        }).setOrigin(0.5);
+        }).setOrigin(0.5, 0.5);
 
         // Create physics body for collision
         const hitbox = this.floatingLetters.create(x, y, null);
         hitbox.setVisible(false);
-        hitbox.body.setCircle(50);
+        hitbox.body.setCircle(60);
         hitbox.body.velocity.x = -this.gameSpeed;
         hitbox.isCorrect = isCorrect;
         hitbox.letter = letter;
@@ -608,22 +607,9 @@ class GameScene extends Phaser.Scene {
         hitbox.letterBg = bg;
 
         // Bobbing animation (like fruits)
-        // Store original y positions for proper bobbing
-        hitbox.baseY = y;
-        hitbox.letterBaseY = y - 8;
-
         this.tweens.add({
-            targets: bg,
+            targets: [bg, letterText],
             y: y - 12,
-            duration: 600,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-        });
-
-        this.tweens.add({
-            targets: letterText,
-            y: (y - 8) - 12,
             duration: 600,
             yoyo: true,
             repeat: -1,
