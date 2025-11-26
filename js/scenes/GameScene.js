@@ -587,14 +587,15 @@ class GameScene extends Phaser.Scene {
         // Circle radius 60px (120px diameter) to fit all Arabic letters
         const bg = this.add.circle(x, y, 60, 0xf4d03f, 0.9);
         bg.setStrokeStyle(3, 0x8b4513);
+        bg.setDepth(10);
 
-        // Arabic text centered in circle - smaller font to fit within bounds
+        // Arabic text centered in circle - sits on top of circle (higher depth)
         const letterText = this.add.text(x, y, letter, {
             fontFamily: 'Noto Sans Arabic, Arial',
             fontSize: '40px',
             color: '#2c1810',
             fontStyle: 'bold'
-        }).setOrigin(0.5, 0.5);
+        }).setOrigin(0.5, 0.5).setDepth(11);
 
         // Create physics body for collision
         const hitbox = this.floatingLetters.create(x, y, null);
