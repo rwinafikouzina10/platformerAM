@@ -84,32 +84,16 @@ class BootScene extends Phaser.Scene {
     loadExternalAssets() {
         const basePath = 'assets/';
 
-        // --- PLAYER SPRITES (Ninja Frog from Pixel Adventure) ---
-        // Load as spritesheets for animation
-        this.load.spritesheet('player_idle', basePath + 'images/player/Idle (32x32).png', {
-            frameWidth: 32,
-            frameHeight: 32
-        });
-        this.load.spritesheet('player_run', basePath + 'images/player/Run (32x32).png', {
-            frameWidth: 32,
-            frameHeight: 32
-        });
-        this.load.spritesheet('player_jump', basePath + 'images/player/Jump (32x32).png', {
-            frameWidth: 32,
-            frameHeight: 32
-        });
-        this.load.spritesheet('player_fall', basePath + 'images/player/Fall (32x32).png', {
-            frameWidth: 32,
-            frameHeight: 32
-        });
-        this.load.spritesheet('player_double_jump', basePath + 'images/player/Double Jump (32x32).png', {
-            frameWidth: 32,
-            frameHeight: 32
-        });
-        this.load.spritesheet('player_hit', basePath + 'images/player/Hit (32x32).png', {
-            frameWidth: 32,
-            frameHeight: 32
-        });
+        // --- PLAYER SPRITES (Kenney Adventurer) ---
+        // Load individual pose images for the adventurer character (80x110 px each)
+        this.load.image('player_idle', basePath + 'images/adventurer/Poses/adventurer_stand.png');
+        this.load.image('player_walk1', basePath + 'images/adventurer/Poses/adventurer_walk1.png');
+        this.load.image('player_walk2', basePath + 'images/adventurer/Poses/adventurer_walk2.png');
+        this.load.image('player_jump', basePath + 'images/adventurer/Poses/adventurer_jump.png');
+        this.load.image('player_fall', basePath + 'images/adventurer/Poses/adventurer_fall.png');
+        this.load.image('player_hurt', basePath + 'images/adventurer/Poses/adventurer_hurt.png');
+        this.load.image('player_duck', basePath + 'images/adventurer/Poses/adventurer_duck.png');
+        this.load.image('player_action', basePath + 'images/adventurer/Poses/adventurer_action1.png');
 
         // --- BACKGROUNDS ---
         this.load.image('bg_yellow', basePath + 'images/background/Yellow.png');
@@ -352,8 +336,13 @@ class BootScene extends Phaser.Scene {
         // Set up Web Audio context for sound synthesis
         this.createSoundSynthesizer();
 
-        // Transition to menu on tap
+        // Transition to menu on tap - also unlock audio for tablets
         this.input.once('pointerdown', () => {
+            // Unlock audio on first user interaction (required for tablets/mobile)
+            if (window.AudioSynth) {
+                window.AudioSynth.unlock();
+            }
+
             this.cameras.main.fadeOut(500, 0, 0, 0);
             this.cameras.main.once('camerafadeoutcomplete', () => {
                 this.scene.start('MenuScene');
@@ -362,46 +351,49 @@ class BootScene extends Phaser.Scene {
     }
 
     createAnimations() {
-        // Player animations
+        // Player animations using individual Kenney Adventurer pose images
         this.anims.create({
             key: 'player_idle_anim',
-            frames: this.anims.generateFrameNumbers('player_idle', { start: 0, end: 10 }),
-            frameRate: 20,
+            frames: [{ key: 'player_idle' }],
+            frameRate: 1,
             repeat: -1
         });
 
         this.anims.create({
             key: 'player_run_anim',
-            frames: this.anims.generateFrameNumbers('player_run', { start: 0, end: 11 }),
-            frameRate: 20,
+            frames: [
+                { key: 'player_walk1' },
+                { key: 'player_walk2' }
+            ],
+            frameRate: 8,
             repeat: -1
         });
 
         this.anims.create({
             key: 'player_jump_anim',
-            frames: this.anims.generateFrameNumbers('player_jump', { start: 0, end: 0 }),
-            frameRate: 20,
+            frames: [{ key: 'player_jump' }],
+            frameRate: 1,
             repeat: 0
         });
 
         this.anims.create({
             key: 'player_fall_anim',
-            frames: this.anims.generateFrameNumbers('player_fall', { start: 0, end: 0 }),
-            frameRate: 20,
+            frames: [{ key: 'player_fall' }],
+            frameRate: 1,
             repeat: 0
         });
 
         this.anims.create({
             key: 'player_double_jump_anim',
-            frames: this.anims.generateFrameNumbers('player_double_jump', { start: 0, end: 5 }),
-            frameRate: 20,
+            frames: [{ key: 'player_action' }],
+            frameRate: 1,
             repeat: 0
         });
 
         this.anims.create({
             key: 'player_hit_anim',
-            frames: this.anims.generateFrameNumbers('player_hit', { start: 0, end: 6 }),
-            frameRate: 20,
+            frames: [{ key: 'player_hurt' }],
+            frameRate: 1,
             repeat: 0
         });
 
@@ -427,18 +419,41 @@ class BootScene extends Phaser.Scene {
 
     createSoundSynthesizer() {
         // Store audio context globally for use in GameScene
+        // Fixed for tablet/mobile: AudioContext must be resumed after user gesture
         window.AudioSynth = {
             context: null,
+            initialized: false,
 
             init() {
                 if (!this.context) {
                     this.context = new (window.AudioContext || window.webkitAudioContext)();
                 }
+                // Resume context if it's suspended (required on mobile/tablets)
+                if (this.context.state === 'suspended') {
+                    this.context.resume();
+                }
                 return this.context;
+            },
+
+            // Call this on first user interaction to unlock audio
+            unlock() {
+                this.init();
+                if (!this.initialized) {
+                    // Play a silent sound to unlock audio on iOS/Android
+                    const ctx = this.context;
+                    const buffer = ctx.createBuffer(1, 1, 22050);
+                    const source = ctx.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(ctx.destination);
+                    source.start(0);
+                    this.initialized = true;
+                }
             },
 
             playTone(frequency, duration, type = 'sine', volume = 0.3) {
                 const ctx = this.init();
+                if (ctx.state === 'suspended') return; // Don't play if still locked
+
                 const oscillator = ctx.createOscillator();
                 const gainNode = ctx.createGain();
 
@@ -476,12 +491,33 @@ class BootScene extends Phaser.Scene {
             },
 
             speakLetter(letter, letterName) {
+                // Unlock audio context first
+                this.unlock();
+
                 if ('speechSynthesis' in window) {
+                    // Cancel any pending speech
+                    speechSynthesis.cancel();
+
                     const utterance = new SpeechSynthesisUtterance(letter);
                     utterance.lang = 'ar-SA';
                     utterance.rate = 0.8;
                     utterance.pitch = 1.2;
-                    speechSynthesis.speak(utterance);
+
+                    // On some devices, we need to wait for voices to load
+                    const speak = () => {
+                        const voices = speechSynthesis.getVoices();
+                        const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
+                        if (arabicVoice) {
+                            utterance.voice = arabicVoice;
+                        }
+                        speechSynthesis.speak(utterance);
+                    };
+
+                    if (speechSynthesis.getVoices().length > 0) {
+                        speak();
+                    } else {
+                        speechSynthesis.onvoiceschanged = speak;
+                    }
                 } else {
                     this.playTone(440, 0.2, 'sine', 0.3);
                 }

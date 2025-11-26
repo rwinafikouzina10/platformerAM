@@ -143,6 +143,11 @@ class MenuScene extends Phaser.Scene {
     }
 
     startLevel(level) {
+        // Unlock audio on level start (required for tablets/mobile)
+        if (window.AudioSynth) {
+            window.AudioSynth.unlock();
+        }
+
         // Store selected level
         window.GameData.currentLevel = level;
         window.GameData.levelLettersCompleted = [];

@@ -156,15 +156,15 @@ class GameScene extends Phaser.Scene {
     }
 
     createPlayer() {
-        // Create player sprite with Ninja Frog
-        this.player = this.physics.add.sprite(200, this.groundY - 50, 'player_idle');
-        this.player.setScale(2); // Scale up the 32x32 sprite
+        // Create player sprite with Kenney Adventurer (80x110 px)
+        this.player = this.physics.add.sprite(200, this.groundY - 60, 'player_idle');
+        this.player.setScale(0.9); // Scale down the 80x110 sprite to fit
         this.player.setBounce(0.1);
         this.player.setCollideWorldBounds(true);
 
-        // Adjust hitbox for the scaled sprite
-        this.player.body.setSize(20, 28);
-        this.player.body.setOffset(6, 4);
+        // Adjust hitbox for the adventurer sprite
+        this.player.body.setSize(40, 90);
+        this.player.body.setOffset(20, 15);
 
         // Start idle animation
         this.player.play('player_idle_anim');
