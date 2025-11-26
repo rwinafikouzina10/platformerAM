@@ -185,10 +185,10 @@ class BootScene extends Phaser.Scene {
             this.load.audio(`letter_${sound}`, basePath + `audio/letters/${sound}.mp3`);
         });
 
-        // Letters with harakat (first 10 letters)
-        const harakatLetters = ['alif', 'ba', 'ta', 'tha', 'jeem', 'ha', 'kha', 'dal', 'thal', 'ra'];
+        // Letters with harakat (ALL 28 letters × 3 harakat = 84 files)
+        // Pronunciations: ba, bi, bu / ta, ti, tu / etc.
         const harakatTypes = ['fatha', 'kasra', 'damma'];
-        harakatLetters.forEach(letter => {
+        letterSounds.forEach(letter => {
             harakatTypes.forEach(haraka => {
                 this.load.audio(`letter_${letter}_${haraka}`, basePath + `audio/letters/${letter}_${haraka}.mp3`);
             });
