@@ -423,6 +423,7 @@ class BootScene extends Phaser.Scene {
         window.AudioSynth = {
             context: null,
             initialized: false,
+            speechUnlocked: false,
 
             init() {
                 if (!this.context) {
@@ -435,7 +436,7 @@ class BootScene extends Phaser.Scene {
                 return this.context;
             },
 
-            // Call this on first user interaction to unlock audio
+            // Call this on first user interaction to unlock audio AND speech
             unlock() {
                 this.init();
                 if (!this.initialized) {
@@ -447,6 +448,19 @@ class BootScene extends Phaser.Scene {
                     source.connect(ctx.destination);
                     source.start(0);
                     this.initialized = true;
+                }
+
+                // Unlock Speech Synthesis on tablets (must be triggered by user gesture)
+                if (!this.speechUnlocked && 'speechSynthesis' in window) {
+                    // Speak empty string to unlock - this must happen during user tap
+                    const emptyUtterance = new SpeechSynthesisUtterance('');
+                    emptyUtterance.volume = 0;
+                    speechSynthesis.speak(emptyUtterance);
+
+                    // Also pre-load voices
+                    speechSynthesis.getVoices();
+
+                    this.speechUnlocked = true;
                 }
             },
 
