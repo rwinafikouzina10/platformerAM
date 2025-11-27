@@ -386,15 +386,17 @@ class GameScene extends Phaser.Scene {
             return;
         }
 
-        // Get next uncompleted letter (sequential order for learning)
+        // Get all uncompleted letters and pick one randomly
+        const uncompletedLetters = this.levelLetters.filter(
+            letter => !this.completedLettersInLevel.includes(letter.char)
+        );
+
+        // Pick a random letter from uncompleted ones
         let nextLetter = null;
-        for (let i = 0; i < this.levelLetters.length; i++) {
-            const letter = this.levelLetters[i];
-            if (!this.completedLettersInLevel.includes(letter.char)) {
-                nextLetter = letter;
-                this.currentLetterIndex = i;
-                break;
-            }
+        if (uncompletedLetters.length > 0) {
+            const randomIndex = Phaser.Math.Between(0, uncompletedLetters.length - 1);
+            nextLetter = uncompletedLetters[randomIndex];
+            this.currentLetterIndex = this.levelLetters.indexOf(nextLetter);
         }
 
         if (!nextLetter) {
