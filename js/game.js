@@ -120,6 +120,14 @@ window.GameData = {
         { char: 'ُ', name: 'Damma', sound: 'u' }     // u sound
     ],
 
+    // Difficulty settings
+    difficulties: {
+        slow: { speed: 200, label: 'Langzaam', maxSpeed: 300 },
+        medium: { speed: 280, label: 'Gemiddeld', maxSpeed: 380 },
+        fast: { speed: 360, label: 'Snel', maxSpeed: 460 }
+    },
+    currentDifficulty: localStorage.getItem('farisDifficulty') || 'slow',
+
     // Game state
     score: 0,
     highScore: localStorage.getItem('farisHighScore') || 0,

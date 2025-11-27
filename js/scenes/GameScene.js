@@ -11,7 +11,13 @@ class GameScene extends Phaser.Scene {
         // Game state
         this.score = 0;
         this.lives = 3;
-        this.gameSpeed = 200;
+
+        // Get difficulty settings
+        const difficulty = window.GameData.currentDifficulty || 'slow';
+        const diffSettings = window.GameData.difficulties[difficulty];
+        this.gameSpeed = diffSettings.speed;
+        this.maxGameSpeed = diffSettings.maxSpeed;
+
         this.isGameOver = false;
         this.isPaused = false;
 
@@ -660,7 +666,7 @@ class GameScene extends Phaser.Scene {
             }
 
             // Speed up slightly
-            this.gameSpeed = Math.min(this.gameSpeed + 3, 350);
+            this.gameSpeed = Math.min(this.gameSpeed + 3, this.maxGameSpeed);
         } else {
             // Wrong letter!
             if (window.AudioSynth) {
