@@ -8,58 +8,80 @@ This document contains detailed prompts for generating all visual assets for "Fa
 
 ---
 
-## 1. PLAYER CHARACTER (Adventurer)
+## 1. PLAYER CHARACTER (Adventurer) - SPRITESHEET
 
 ### Base Character Design
 **Theme:** Young adventurer/explorer in desert setting, friendly and approachable for children.
 
-#### player_idle (Standing Pose)
-- **Size:** 80x110 pixels
+### player_spritesheet (All Poses in One Sheet)
+- **Size:** 640x110 pixels (8 frames × 80px width, 1 row of 110px height)
+- **Frame Size:** 80x110 pixels each
 - **Transparency:** Yes, PNG with transparent background
 - **Style:** Pixel art with smooth edges, 2D side-view platformer character
-- **Prompt:** "Pixel art character, young adventurer standing idle, side view facing right. Wearing explorer outfit with tan/khaki shorts, light blue shirt, brown boots, and a small backpack. Friendly round face with simple features. Arms relaxed at sides. Desert explorer theme. Transparent background. 80x110 pixels. Child-friendly cartoon style similar to Kenney game assets."
+- **Frame Order:** idle, walk1, walk2, jump, fall, hurt, duck, action
 
-#### player_walk1 (Walking Frame 1)
-- **Size:** 80x110 pixels
-- **Transparency:** Yes, PNG with transparent background
-- **Style:** Same as idle, walking animation frame
-- **Prompt:** "Pixel art character, young adventurer mid-walk cycle frame 1, side view facing right. Left leg forward, right arm forward. Same outfit as standing pose: tan shorts, light blue shirt, brown boots, small backpack. Transparent background. 80x110 pixels. Walking animation frame for 2D platformer."
+**Full Spritesheet Prompt:**
+"Pixel art character spritesheet, horizontal strip with 8 frames, each frame 80x110 pixels. Young adventurer character, side view facing right throughout. Consistent style across all frames.
 
-#### player_walk2 (Walking Frame 2)
-- **Size:** 80x110 pixels
-- **Transparency:** Yes, PNG with transparent background
-- **Style:** Same as idle, walking animation frame
-- **Prompt:** "Pixel art character, young adventurer mid-walk cycle frame 2, side view facing right. Right leg forward, left arm forward. Same outfit: tan shorts, light blue shirt, brown boots, small backpack. Transparent background. 80x110 pixels. Walking animation frame for 2D platformer."
+Character design: Child-friendly explorer wearing tan/khaki shorts, light blue shirt, brown boots, small backpack. Friendly round face with simple features.
 
-#### player_jump (Jumping Pose)
-- **Size:** 80x110 pixels
-- **Transparency:** Yes, PNG with transparent background
-- **Style:** Dynamic jumping pose
-- **Prompt:** "Pixel art character, young adventurer jumping upward, side view facing right. Arms raised up, legs tucked slightly. Excited expression. Same explorer outfit: tan shorts, light blue shirt, brown boots, backpack. Dynamic upward motion pose. Transparent background. 80x110 pixels."
+Frame layout (left to right):
+1. IDLE: Standing relaxed, arms at sides
+2. WALK1: Mid-walk, left leg forward, right arm forward
+3. WALK2: Mid-walk, right leg forward, left arm forward
+4. JUMP: Jumping up, arms raised, legs tucked, excited face
+5. FALL: Falling down, arms spread for balance, legs extended
+6. HURT: Recoiling from hit, eyes closed, leaning back
+7. DUCK: Crouching low, knees bent, head down
+8. ACTION: Dynamic aerial spin, arms and legs spread
 
-#### player_fall (Falling Pose)
-- **Size:** 80x110 pixels
-- **Transparency:** Yes, PNG with transparent background
-- **Style:** Falling/descending pose
-- **Prompt:** "Pixel art character, young adventurer falling downward, side view facing right. Arms spread out for balance, legs extended below. Slightly worried but not scared expression. Same explorer outfit. Downward falling pose. Transparent background. 80x110 pixels."
+Total size: 640x110 pixels. Transparent background. Kenney/Pixel Adventure style. Child-friendly cartoon aesthetic."
 
-#### player_hurt (Hit/Hurt Pose)
-- **Size:** 80x110 pixels
-- **Transparency:** Yes, PNG with transparent background
-- **Style:** Recoiling pose showing damage taken
-- **Prompt:** "Pixel art character, young adventurer recoiling from hit, side view. Eyes closed or squinting, slight grimace. Body leaning back as if pushed. Same explorer outfit. Shows impact but not violent - child-friendly hurt animation. Transparent background. 80x110 pixels."
+**Alternative: Generate Individual Frames Then Combine**
 
-#### player_duck (Ducking Pose)
-- **Size:** 80x110 pixels
-- **Transparency:** Yes, PNG with transparent background
-- **Style:** Crouching/ducking pose
-- **Prompt:** "Pixel art character, young adventurer crouching/ducking low, side view facing right. Knees bent, body lowered, head down. Same explorer outfit. Avoiding obstacle pose. Transparent background. 80x110 pixels."
+If your AI tool struggles with spritesheets, generate each frame separately with these prompts, then combine in an image editor:
 
-#### player_action (Double Jump/Action Pose)
-- **Size:** 80x110 pixels
-- **Transparency:** Yes, PNG with transparent background
-- **Style:** Dynamic action pose
-- **Prompt:** "Pixel art character, young adventurer doing aerial spin or double jump, side view. Arms and legs spread in dynamic star-like pose. Excited expression. Same explorer outfit. High-energy action pose. Transparent background. 80x110 pixels."
+#### Frame 1: Idle (Position 0-79px)
+"Pixel art character, young adventurer standing idle, side view facing right. Wearing tan shorts, light blue shirt, brown boots, small backpack. Arms relaxed at sides. Friendly expression. Transparent background. 80x110 pixels. Kenney game asset style."
+
+#### Frame 2: Walk1 (Position 80-159px)
+"Pixel art character, young adventurer walk cycle frame 1, side view facing right. Left leg forward, right arm forward. Same outfit: tan shorts, light blue shirt, brown boots, backpack. Transparent background. 80x110 pixels."
+
+#### Frame 3: Walk2 (Position 160-239px)
+"Pixel art character, young adventurer walk cycle frame 2, side view facing right. Right leg forward, left arm forward. Same outfit. Transparent background. 80x110 pixels."
+
+#### Frame 4: Jump (Position 240-319px)
+"Pixel art character, young adventurer jumping upward, side view facing right. Arms raised, legs tucked. Excited expression. Same outfit. Transparent background. 80x110 pixels."
+
+#### Frame 5: Fall (Position 320-399px)
+"Pixel art character, young adventurer falling, side view facing right. Arms spread for balance, legs extended below. Slightly worried expression. Same outfit. Transparent background. 80x110 pixels."
+
+#### Frame 6: Hurt (Position 400-479px)
+"Pixel art character, young adventurer recoiling from hit, side view. Eyes closed, body leaning back. Same outfit. Child-friendly hurt pose. Transparent background. 80x110 pixels."
+
+#### Frame 7: Duck (Position 480-559px)
+"Pixel art character, young adventurer crouching/ducking, side view facing right. Knees bent, body lowered. Same outfit. Transparent background. 80x110 pixels."
+
+#### Frame 8: Action (Position 560-639px)
+"Pixel art character, young adventurer aerial spin/double jump, side view. Arms and legs spread dynamically. Excited expression. Same outfit. Transparent background. 80x110 pixels."
+
+### Phaser Loading Code (Updated)
+```javascript
+// In BootScene.js - replace individual image loads with:
+this.load.spritesheet('player', 'assets/images/adventurer/player_spritesheet.png', {
+    frameWidth: 80,
+    frameHeight: 110
+});
+
+// Animation definitions:
+// Frame 0: idle
+// Frame 1-2: walk/run cycle
+// Frame 3: jump
+// Frame 4: fall
+// Frame 5: hurt
+// Frame 6: duck
+// Frame 7: action/double-jump
+```
 
 ---
 
@@ -230,18 +252,24 @@ This document contains detailed prompts for generating all visual assets for "Fa
 - **Style:** Disappearing/collected effect animation
 - **Prompt:** "Pixel art spritesheet, item collected feedback effect, 6 frame animation in horizontal strip. Each frame 32x32 pixels. Shows sparkles/stars bursting outward and fading. Golden/yellow sparkle particles expanding from center then disappearing. Used when player collects item. Transparent background. Total size 192x32 pixels."
 
-### Coin Animation (6 individual images)
-
-#### coin1 through coin6
-- **Size:** 32x32 pixels each
+### coin_spritesheet (Rotating Coin Animation)
+- **Size:** 192x32 pixels (6 frames of 32x32)
+- **Frame Size:** 32x32 pixels each
 - **Transparency:** Yes
 - **Style:** Rotating gold star coin
-- **Prompt for coin1:** "Pixel art gold star coin, rotation frame 1 of 6, front view. Golden star shape inside circular coin. Shiny metallic appearance. 32x32 pixels. Transparent background."
-- **Prompt for coin2:** "Pixel art gold star coin, rotation frame 2 of 6, slightly angled. Star coin rotating, showing slight 3D depth. 32x32 pixels. Transparent background."
-- **Prompt for coin3:** "Pixel art gold star coin, rotation frame 3 of 6, side angle. Coin at 60-degree rotation showing edge. 32x32 pixels. Transparent background."
-- **Prompt for coin4:** "Pixel art gold star coin, rotation frame 4 of 6, thin edge view. Coin almost sideways, very thin appearance. 32x32 pixels. Transparent background."
-- **Prompt for coin5:** "Pixel art gold star coin, rotation frame 5 of 6, opposite side angle. Coin rotating back, reverse side visible. 32x32 pixels. Transparent background."
-- **Prompt for coin6:** "Pixel art gold star coin, rotation frame 6 of 6, nearly front again. Almost completed rotation back to front view. 32x32 pixels. Transparent background."
+
+**Prompt:**
+"Pixel art spritesheet, rotating gold star coin, 6 frames horizontal strip. Each frame 32x32 pixels. Shows coin rotating 360 degrees.
+
+Frame layout (left to right):
+1. Front view - full star visible on golden coin
+2. Slight angle - coin turning, star slightly distorted
+3. Side angle - coin at 60 degrees, star compressed
+4. Edge view - coin almost sideways, very thin line
+5. Opposite angle - back side visible, star compressed
+6. Nearly front - almost completed rotation
+
+Golden yellow coin with star emblem. Shiny metallic appearance with highlights. Total size 192x32 pixels. Transparent background."
 
 ---
 
@@ -253,17 +281,24 @@ This document contains detailed prompts for generating all visual assets for "Fa
 - **Style:** Dangerous ground hazard
 - **Prompt:** "Pixel art ground spikes hazard, desert/sand colored. 4 triangular spikes pointing upward. Sandy brown/tan base merging with ground, silver/gray metallic spike tips. Dangerous but not gory - child-friendly design. 32x16 pixels. Transparent background."
 
-### slime (Enemy - Optional)
-- **Size:** 32x32 pixels
+### slime_spritesheet (Enemy - Optional)
+- **Size:** 160x32 pixels (5 frames of 32x32) - idle + 4 walk frames
+- **Frame Size:** 32x32 pixels each
 - **Transparency:** Yes
-- **Style:** Cute blob enemy
-- **Prompt:** "Pixel art slime enemy, cute blob creature. Green gelatinous body with simple dot eyes. Friendly-looking despite being enemy. Bouncy appearance. Desert variation could be tan/sand colored. 32x32 pixels. Transparent background."
+- **Style:** Cute animated blob enemy
+- **Frame Order:** idle, squash1, stretch1, squash2, stretch2
 
-### slime_walk (Enemy Animation - Optional)
-- **Size:** 128x32 pixels (4 frames of 32x32)
-- **Transparency:** Yes
-- **Style:** Animated bouncing movement
-- **Prompt:** "Pixel art spritesheet, slime enemy walking animation, 4 frames horizontal strip. Each frame 32x32 pixels. Shows slime squashing and stretching as it bounces/moves. Cute bouncy movement. Transparent background. Total size 128x32 pixels."
+**Prompt:**
+"Pixel art spritesheet, cute slime enemy, 5 frames horizontal strip. Each frame 32x32 pixels. Desert sand-colored slime blob with simple dot eyes.
+
+Frame layout (left to right):
+1. IDLE: Normal round blob shape, neutral
+2. SQUASH1: Squashed flat, about to bounce
+3. STRETCH1: Stretched tall, mid-bounce up
+4. SQUASH2: Squashed again, landing
+5. STRETCH2: Stretched, bouncing forward
+
+Friendly-looking despite being enemy. Child-safe design. Total size 160x32 pixels. Transparent background."
 
 ---
 
@@ -399,61 +434,52 @@ These are currently procedurally generated but could be replaced with image asse
 assets/
 ├── images/
 │   ├── adventurer/
-│   │   └── Poses/
-│   │       ├── adventurer_stand.png
-│   │       ├── adventurer_walk1.png
-│   │       ├── adventurer_walk2.png
-│   │       ├── adventurer_jump.png
-│   │       ├── adventurer_fall.png
-│   │       ├── adventurer_hurt.png
-│   │       ├── adventurer_duck.png
-│   │       └── adventurer_action1.png
+│   │   └── player_spritesheet.png     (640x110 - 8 frames of 80x110)
 │   ├── background/
-│   │   ├── Yellow.png
-│   │   ├── Blue.png
-│   │   └── Brown.png
+│   │   ├── Yellow.png                  (1280x720)
+│   │   ├── Blue.png                    (1280x720)
+│   │   └── Brown.png                   (1280x720)
 │   ├── parallax/
-│   │   ├── rocky-mountains.png
-│   │   ├── rocky-far.png
-│   │   ├── rocky-mid.png
-│   │   └── rocky-close.png
+│   │   ├── rocky-mountains.png         (1280x720, tileable)
+│   │   ├── rocky-far.png               (1280x720, tileable)
+│   │   ├── rocky-mid.png               (1280x720, tileable)
+│   │   └── rocky-close.png             (1280x720, tileable)
 │   ├── terrain/
-│   │   ├── sandLeft.png
-│   │   ├── sandMid.png
-│   │   ├── sandRight.png
-│   │   ├── sandCenter.png
-│   │   ├── sandHalf.png
-│   │   ├── sandHalfLeft.png
-│   │   ├── sandHalfMid.png
-│   │   ├── sandHalfRight.png
-│   │   ├── sandHillLeft.png
-│   │   └── sandHillRight.png
+│   │   ├── sandLeft.png                (70x70)
+│   │   ├── sandMid.png                 (70x70)
+│   │   ├── sandRight.png               (70x70)
+│   │   ├── sandCenter.png              (70x70)
+│   │   ├── sandHalf.png                (70x70)
+│   │   ├── sandHalfLeft.png            (70x70)
+│   │   ├── sandHalfMid.png             (70x70)
+│   │   ├── sandHalfRight.png           (70x70)
+│   │   ├── sandHillLeft.png            (70x70)
+│   │   └── sandHillRight.png           (70x70)
 │   ├── items/
-│   │   ├── Apple.png (spritesheet 544x32)
-│   │   ├── Bananas.png (spritesheet 544x32)
-│   │   ├── Cherries.png (spritesheet 544x32)
-│   │   ├── Orange.png (spritesheet 544x32)
-│   │   ├── Melon.png (spritesheet 544x32)
-│   │   ├── Kiwi.png (spritesheet 544x32)
-│   │   ├── Strawberry.png (spritesheet 544x32)
-│   │   ├── Collected.png (spritesheet 192x32)
-│   │   └── star coin rotate [1-6].png
+│   │   ├── Apple.png                   (544x32 spritesheet, 17 frames)
+│   │   ├── Bananas.png                 (544x32 spritesheet, 17 frames)
+│   │   ├── Cherries.png                (544x32 spritesheet, 17 frames)
+│   │   ├── Orange.png                  (544x32 spritesheet, 17 frames)
+│   │   ├── Melon.png                   (544x32 spritesheet, 17 frames)
+│   │   ├── Kiwi.png                    (544x32 spritesheet, 17 frames)
+│   │   ├── Strawberry.png              (544x32 spritesheet, 17 frames)
+│   │   ├── Collected.png               (192x32 spritesheet, 6 frames)
+│   │   └── coin_spritesheet.png        (192x32 spritesheet, 6 frames)
 │   ├── enemies/
-│   │   ├── spikes.png
-│   │   ├── slime.png
-│   │   └── slime_walk.png
+│   │   ├── spikes.png                  (32x16)
+│   │   └── slime_spritesheet.png       (160x32 spritesheet, 5 frames)
 │   ├── ui/
-│   │   ├── Play.png
-│   │   ├── Restart.png
-│   │   ├── Back.png
-│   │   ├── Settings.png
-│   │   ├── Next.png
-│   │   ├── Previous.png
-│   │   └── Close.png
+│   │   ├── Play.png                    (64x64)
+│   │   ├── Restart.png                 (64x64)
+│   │   ├── Back.png                    (64x64)
+│   │   ├── Settings.png                (64x64)
+│   │   ├── Next.png                    (64x64)
+│   │   ├── Previous.png                (64x64)
+│   │   └── Close.png                   (64x64)
 │   └── decorations/
-│       ├── palm_tree.png
-│       ├── cactus.png
-│       └── oasis.png
+│       ├── palm_tree.png               (90x160)
+│       ├── cactus.png                  (60x80)
+│       └── oasis.png                   (120x60)
 ```
 
 ---
