@@ -39,6 +39,11 @@ class GameScene extends Phaser.Scene {
         // Player state
         this.canJump = true;
         this.isOnGround = true;
+        this.isCrouching = false;
+
+        // Hitbox dimensions
+        this.normalHitbox = { width: 40, height: 55, offsetX: 12, offsetY: 9 };
+        this.crouchHitbox = { width: 40, height: 35, offsetX: 12, offsetY: 29 };
 
         // Sound debounce
         this.lastSoundTime = 0;
@@ -215,7 +220,7 @@ class GameScene extends Phaser.Scene {
             const difficulty = Math.min(seg / numSegments, 0.8); // 0 to 0.8
 
             // Alternate between pattern types, getting harder
-            const patternType = seg % 4;
+            const patternType = seg % 5;
 
             switch(patternType) {
                 case 0:
@@ -229,6 +234,9 @@ class GameScene extends Phaser.Scene {
                     break;
                 case 3:
                     this.createMixedSection(segStart, tileSize, difficulty);
+                    break;
+                case 4:
+                    this.createCrouchSection(segStart, tileSize, difficulty);
                     break;
             }
         }
@@ -347,6 +355,49 @@ class GameScene extends Phaser.Scene {
                 hasLetter: false
             });
         });
+    }
+
+    createCrouchSection(startX, tileSize, difficulty) {
+        // Low ceiling section - must crouch to pass through
+        // Creates a tunnel-like area with platform above
+
+        // Ground-level platform
+        const groundPlatY = this.groundY - 60;
+        this.createTilesetPlatform(startX, groundPlatY, 10, 1, 'grass');
+        this.platformPositions.push({
+            x: startX + (10 * tileSize) / 2,
+            y: groundPlatY,
+            width: 10 * tileSize,
+            hasLetter: false
+        });
+
+        // Low ceiling above - player must crouch to pass
+        // Height is only ~50px above platform (normal player is ~55px, crouched is ~35px)
+        const ceilingY = groundPlatY - 45;
+        this.createTilesetPlatform(startX + 80, ceilingY, 6, 1, 'stone');
+
+        // Exit platform after tunnel
+        const exitX = startX + 400;
+        this.createTilesetPlatform(exitX, groundPlatY, 8, 1, 'grass');
+        this.platformPositions.push({
+            x: exitX + (8 * tileSize) / 2,
+            y: groundPlatY,
+            width: 8 * tileSize,
+            hasLetter: false
+        });
+
+        // Optional bonus platform above tunnel for players who jump over
+        if (Math.random() > 0.5) {
+            const bonusX = startX + 200;
+            const bonusY = this.groundY - 180;
+            this.createTilesetPlatform(bonusX, bonusY, 4, 1, 'orange');
+            this.platformPositions.push({
+                x: bonusX + (4 * tileSize) / 2,
+                y: bonusY,
+                width: 4 * tileSize,
+                hasLetter: false
+            });
+        }
     }
 
     createTilesetPlatform(x, y, widthInTiles, heightInTiles, style = 'grass') {
@@ -1255,19 +1306,53 @@ class GameScene extends Phaser.Scene {
         const left = cursorKeys.left.isDown || this.cursors.left.isDown;
         const right = cursorKeys.right.isDown || this.cursors.right.isDown;
         const jumpKey = this.cursors.up.isDown || this.spaceKey.isDown;
+        const crouchKey = cursorKeys.down.isDown || this.cursors.down.isDown;
 
-        // Horizontal movement
-        if (left) {
-            this.player.setVelocityX(-this.playerSpeed);
-            this.player.setFlipX(true);
-            if (this.isOnGround) this.player.play('player_run_anim', true);
-        } else if (right) {
-            this.player.setVelocityX(this.playerSpeed);
-            this.player.setFlipX(false);
-            if (this.isOnGround) this.player.play('player_run_anim', true);
+        // Handle crouching (only on ground)
+        if (crouchKey && this.isOnGround) {
+            if (!this.isCrouching) {
+                // Start crouching
+                this.isCrouching = true;
+                this.player.play('player_crouch_anim', true);
+                // Shrink hitbox for crouching
+                this.player.body.setSize(this.crouchHitbox.width, this.crouchHitbox.height);
+                this.player.body.setOffset(this.crouchHitbox.offsetX, this.crouchHitbox.offsetY);
+            } else {
+                // Hold crouch pose
+                this.player.play('player_crouch_idle_anim', true);
+            }
+            // Slow movement while crouching
+            if (left) {
+                this.player.setVelocityX(-this.playerSpeed * 0.4);
+                this.player.setFlipX(true);
+            } else if (right) {
+                this.player.setVelocityX(this.playerSpeed * 0.4);
+                this.player.setFlipX(false);
+            } else {
+                this.player.setVelocityX(0);
+            }
         } else {
-            this.player.setVelocityX(0);
-            if (this.isOnGround) this.player.play('player_idle_anim', true);
+            // Stand up from crouch
+            if (this.isCrouching) {
+                this.isCrouching = false;
+                // Restore normal hitbox
+                this.player.body.setSize(this.normalHitbox.width, this.normalHitbox.height);
+                this.player.body.setOffset(this.normalHitbox.offsetX, this.normalHitbox.offsetY);
+            }
+
+            // Normal horizontal movement
+            if (left) {
+                this.player.setVelocityX(-this.playerSpeed);
+                this.player.setFlipX(true);
+                if (this.isOnGround) this.player.play('player_run_anim', true);
+            } else if (right) {
+                this.player.setVelocityX(this.playerSpeed);
+                this.player.setFlipX(false);
+                if (this.isOnGround) this.player.play('player_run_anim', true);
+            } else {
+                this.player.setVelocityX(0);
+                if (this.isOnGround) this.player.play('player_idle_anim', true);
+            }
         }
 
         // Falling animation
@@ -1275,8 +1360,8 @@ class GameScene extends Phaser.Scene {
             this.player.play('player_fall_anim', true);
         }
 
-        // Jump from keyboard
-        if (jumpKey && this.canJump) {
+        // Jump from keyboard (can't jump while crouching)
+        if (jumpKey && this.canJump && !this.isCrouching) {
             this.jump();
         }
 

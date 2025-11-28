@@ -97,17 +97,25 @@ class BootScene extends Phaser.Scene {
         const basePath = 'assets/';
 
         // --- NEW PLAYER CHARACTER (Arabian Adventurer) ---
-        // 64x64 pixel character spritesheets
-        this.load.spritesheet('player_run', basePath + 'images/character/run_spritesheet.png', {
+        // 64x64 pixel character spritesheets from new asset pack
+        this.load.spritesheet('player_run', basePath + 'images/character/arabian_adventurer/run_new_spritesheet.png', {
             frameWidth: 64,
             frameHeight: 64
         });
-        this.load.spritesheet('player_jump', basePath + 'images/character/jump_spritesheet.png', {
+        this.load.spritesheet('player_jump', basePath + 'images/character/arabian_adventurer/jump_new_spritesheet.png', {
             frameWidth: 64,
             frameHeight: 64
         });
-        this.load.image('player_idle', basePath + 'images/character/idle.png');
-        this.load.image('player_stand', basePath + 'images/character/stand.png');
+        this.load.spritesheet('player_idle', basePath + 'images/character/arabian_adventurer/idle_new_spritesheet.png', {
+            frameWidth: 64,
+            frameHeight: 64
+        });
+        this.load.spritesheet('player_crouch', basePath + 'images/character/arabian_adventurer/crouch_spritesheet.png', {
+            frameWidth: 64,
+            frameHeight: 64
+        });
+        // Keep old stand image as fallback
+        this.load.image('player_stand', basePath + 'images/character/idle.png');
 
         // --- GUI ASSETS ---
         // Hearts for lives display
@@ -566,8 +574,8 @@ class BootScene extends Phaser.Scene {
         // Player animations using new Arabian Adventurer spritesheets (64x64)
         this.anims.create({
             key: 'player_idle_anim',
-            frames: [{ key: 'player_idle' }],
-            frameRate: 1,
+            frames: this.anims.generateFrameNumbers('player_idle', { start: 0, end: 3 }),
+            frameRate: 6,
             repeat: -1
         });
 
@@ -599,9 +607,25 @@ class BootScene extends Phaser.Scene {
             repeat: 0
         });
 
+        // Crouch animation - 5 frames
+        this.anims.create({
+            key: 'player_crouch_anim',
+            frames: this.anims.generateFrameNumbers('player_crouch', { start: 0, end: 4 }),
+            frameRate: 10,
+            repeat: 0
+        });
+
+        // Crouching idle (hold last crouch frame)
+        this.anims.create({
+            key: 'player_crouch_idle_anim',
+            frames: this.anims.generateFrameNumbers('player_crouch', { start: 4, end: 4 }),
+            frameRate: 1,
+            repeat: -1
+        });
+
         this.anims.create({
             key: 'player_hit_anim',
-            frames: [{ key: 'player_idle' }],  // Use idle as hurt fallback
+            frames: this.anims.generateFrameNumbers('player_idle', { start: 0, end: 0 }),
             frameRate: 1,
             repeat: 0
         });
