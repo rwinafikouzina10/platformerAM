@@ -619,25 +619,28 @@ class GameScene extends Phaser.Scene {
     }
 
     createFloatingLetter(x, y, letter, isCorrect) {
-        // Create a container-like object using a graphics background + text
+        // Create a container-like object using GUI box background + text
         // All letters look the same - player must identify by sound!
-        // Circle radius 60px (120px diameter) to fit all Arabic letters
-        const bg = this.add.circle(x, y, 60, 0xf4d03f, 0.9);
-        bg.setStrokeStyle(3, 0x8b4513);
+        // Use rectangular box to ensure Arabic letters are fully visible
+        const boxWidth = 100;
+        const boxHeight = 100;
+
+        const bg = this.add.image(x, y, 'gui_box_orange');
+        bg.setDisplaySize(boxWidth, boxHeight);
         bg.setDepth(10);
 
-        // Arabic text centered in circle - sits on top of circle (higher depth)
+        // Arabic text centered in box - sits on top (higher depth)
         const letterText = this.add.text(x, y, letter, {
             fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '40px',
+            fontSize: '52px',
             color: '#2c1810',
             fontStyle: 'bold'
         }).setOrigin(0.5, 0.5).setDepth(11);
 
-        // Create physics body for collision
+        // Create physics body for collision (rectangular hitbox)
         const hitbox = this.floatingLetters.create(x, y, null);
         hitbox.setVisible(false);
-        hitbox.body.setCircle(60);
+        hitbox.body.setSize(boxWidth, boxHeight);
         hitbox.body.velocity.x = -this.gameSpeed;
         hitbox.isCorrect = isCorrect;
         hitbox.letter = letter;
