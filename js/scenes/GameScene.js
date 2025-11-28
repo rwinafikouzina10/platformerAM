@@ -901,7 +901,7 @@ class GameScene extends Phaser.Scene {
 
         // Update UI
         this.updateProgressDisplay();
-        this.targetDisplay.setText(`Zoek: ${this.targetLetter}`);
+        this.targetDisplay.setText('Luister en zoek!');
 
         // Speak the letter
         if (window.AudioSynth) {
