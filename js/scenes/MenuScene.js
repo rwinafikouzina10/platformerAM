@@ -189,7 +189,7 @@ class MenuScene extends Phaser.Scene {
 
         levels.forEach((level, index) => {
             const x = startX + (index * cardSpacing);
-            const unlocked = unlockedLevel >= level.num;
+            const unlocked = true; // All levels unlocked
 
             this.createLevelCard(x, cardY, level, unlocked, completedLetters);
         });

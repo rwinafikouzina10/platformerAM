@@ -26,7 +26,7 @@ class GameScene extends Phaser.Scene {
         this.targetLetter = null;
         this.consecutiveCorrect = 0;
         this.correctCollections = 0; // Track how many times correct letter collected
-        this.requiredCollections = 5; // Need 5 correct to advance to next letter
+        this.requiredCollections = 1; // Only need 1 correct to advance to next letter
 
         // Level system
         this.currentLevel = window.GameData.currentLevel || 1;
@@ -366,24 +366,46 @@ class GameScene extends Phaser.Scene {
 
     getLettersForLevel(level) {
         const letters = window.GameData.letters;
-        if (level === 3) {
-            // Level 3 includes harakat - create letter+harakat combinations
-            const combinations = [];
-            const harakat = window.GameData.harakat || [];
-            // Add first 10 letters with harakat
-            for (let i = 0; i < Math.min(10, letters.length); i++) {
-                harakat.forEach(h => {
-                    combinations.push({
-                        char: letters[i].char + h.char,
-                        name: letters[i].name + ' met ' + h.name,
-                        sound: letters[i].sound,
-                        forms: [letters[i].char + h.char], // Combined form
-                        baseChar: letters[i].char
+
+        if (level === 2) {
+            // Level 2: All letter forms (isolated, initial, medial, final)
+            const allForms = [];
+            const formNames = ['alleenstaand', 'begin', 'midden', 'eind'];
+
+            letters.forEach(letter => {
+                // Get unique forms (some letters have duplicate forms)
+                const uniqueForms = [...new Set(letter.forms)];
+                uniqueForms.forEach((form, index) => {
+                    allForms.push({
+                        char: form,
+                        name: `${letter.name} (${formNames[letter.forms.indexOf(form)]})`,
+                        sound: letter.sound,
+                        baseChar: letter.char
                     });
                 });
-            }
+            });
+            return allForms;
+        }
+
+        if (level === 3) {
+            // Level 3: Letters with harakat (short vowels)
+            const combinations = [];
+            const harakat = window.GameData.harakat || [];
+
+            letters.forEach(letter => {
+                harakat.forEach(h => {
+                    combinations.push({
+                        char: letter.char + h.char,
+                        name: `${letter.name} met ${h.name}`,
+                        sound: `${letter.sound}_${h.sound === 'a' ? 'fatha' : h.sound === 'i' ? 'kasra' : 'damma'}`,
+                        baseChar: letter.char
+                    });
+                });
+            });
             return combinations;
         }
+
+        // Level 1: Just isolated letters (28 letters)
         return letters;
     }
 
@@ -437,10 +459,10 @@ class GameScene extends Phaser.Scene {
     }
 
     updateProgressDisplay() {
-        // Show progress: letter count and collection progress
-        const letterProgress = `Letter ${this.currentLetterIndex + 1}/${this.levelLetters.length}`;
-        const collectProgress = `Verzameld: ${this.correctCollections}/${this.requiredCollections}`;
-        this.progressText.setText(`Niveau ${this.currentLevel} | ${letterProgress} | ${collectProgress}`);
+        // Show progress: completed letters out of total
+        const completed = this.completedLettersInLevel.length;
+        const total = this.levelLetters.length;
+        this.progressText.setText(`Niveau ${this.currentLevel} | ${completed}/${total} geleerd`);
     }
 
     levelComplete() {
