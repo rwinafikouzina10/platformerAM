@@ -358,10 +358,35 @@ class GameScene extends Phaser.Scene {
         this.gameSpeed = 200;
         this.updateScore(0);
 
+        // Start background music (low volume so letters can be heard clearly)
+        this.startBackgroundMusic();
+
         // Start spawning letters after delay
         this.time.delayedCall(1000, () => {
             this.selectNewTarget();
         });
+    }
+
+    startBackgroundMusic() {
+        // Pick a random music track
+        const musicTracks = ['music1', 'music2', 'music3'];
+        const randomTrack = musicTracks[Phaser.Math.Between(0, musicTracks.length - 1)];
+
+        // Check if music file exists before playing
+        if (this.cache.audio.exists(randomTrack)) {
+            this.bgMusic = this.sound.add(randomTrack, {
+                volume: 0.15, // Low volume so letter sounds are clear
+                loop: true
+            });
+            this.bgMusic.play();
+        }
+    }
+
+    stopBackgroundMusic() {
+        if (this.bgMusic) {
+            this.bgMusic.stop();
+            this.bgMusic = null;
+        }
     }
 
     getLettersForLevel(level) {
@@ -459,14 +484,18 @@ class GameScene extends Phaser.Scene {
     }
 
     updateProgressDisplay() {
-        // Show progress: completed letters out of total
+        // Show progress: how many letters remaining
         const completed = this.completedLettersInLevel.length;
         const total = this.levelLetters.length;
-        this.progressText.setText(`Niveau ${this.currentLevel} | ${completed}/${total} geleerd`);
+        const remaining = total - completed;
+        this.progressText.setText(`Niveau ${this.currentLevel} | Nog ${remaining} te gaan`);
     }
 
     levelComplete() {
         this.isGameOver = true;
+
+        // Stop background music
+        this.stopBackgroundMusic();
 
         // Save progress
         const unlockedLevel = parseInt(localStorage.getItem('farisUnlockedLevel') || '1');
@@ -935,6 +964,9 @@ class GameScene extends Phaser.Scene {
     }
 
     returnToMenu() {
+        // Stop background music
+        this.stopBackgroundMusic();
+
         // Fade out and return to menu
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -944,6 +976,9 @@ class GameScene extends Phaser.Scene {
 
     gameOver() {
         this.isGameOver = true;
+
+        // Stop background music
+        this.stopBackgroundMusic();
 
         // Save high score
         window.GameData.saveHighScore(this.score);

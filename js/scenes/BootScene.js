@@ -223,6 +223,12 @@ class BootScene extends Phaser.Scene {
                 this.load.audio(`letter_${letter}_${haraka}`, basePath + `audio/letters/${letter}_${haraka}.mp3`);
             });
         });
+
+        // --- BACKGROUND MUSIC ---
+        // Load music files (placed in assets/audio/music/)
+        this.load.audio('music1', basePath + 'audio/music/music1.mp3');
+        this.load.audio('music2', basePath + 'audio/music/music2.mp3');
+        this.load.audio('music3', basePath + 'audio/music/music3.mp3');
     }
 
     createUIAssets() {
