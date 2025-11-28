@@ -148,6 +148,28 @@ class BootScene extends Phaser.Scene {
         this.load.image('sand_hill_left', basePath + 'images/terrain/sandHillLeft.png');
         this.load.image('sand_hill_right', basePath + 'images/terrain/sandHillRight.png');
 
+        // --- TILESET SPRITESHEETS (32x32 tiles) ---
+        // Summer tileset - grass and dirt platforms
+        this.load.spritesheet('tileset_summer', basePath + 'images/tileset/summer_.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        // Autumn tileset - brown/orange platforms
+        this.load.spritesheet('tileset_autumn', basePath + 'images/tileset/autumn_.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        // Terrain tileset - stone/brick platforms
+        this.load.spritesheet('tileset_terrain', basePath + 'images/tileset/terrain_.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        // Static objects - decorations
+        this.load.spritesheet('tileset_objects', basePath + 'images/tileset/staticObjects_.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+
         // --- COLLECTIBLES (Fruits from Pixel Adventure) ---
         this.load.spritesheet('apple', basePath + 'images/items/Apple.png', {
             frameWidth: 32,

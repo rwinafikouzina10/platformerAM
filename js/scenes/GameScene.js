@@ -109,139 +109,356 @@ class GameScene extends Phaser.Scene {
         // Create physics groups
         this.platforms = this.physics.add.staticGroup();
         this.letterBoxes = this.physics.add.group({ allowGravity: false });
+        this.decorations = this.add.group();
 
         // Generate the level procedurally
         this.generateLevel();
     }
 
     generateLevel() {
+        // Tileset configuration - frame indices for summer tileset
+        // Row 0-1: Grass/dirt (0-13), Row 2-3: Orange ground (14-27), etc.
+        this.tileConfig = {
+            // Grass platform tiles (from summer tileset)
+            grassTopLeft: 0,
+            grassTopMid: 1,
+            grassTopRight: 2,
+            grassMidLeft: 7,
+            grassMidMid: 8,
+            grassMidRight: 9,
+            // Orange/brown platform tiles
+            orangeTopLeft: 14,
+            orangeTopMid: 15,
+            orangeTopRight: 16,
+            orangeMidLeft: 21,
+            orangeMidMid: 22,
+            orangeMidRight: 23,
+            // Stone platform tiles
+            stoneTopLeft: 28,
+            stoneTopMid: 29,
+            stoneTopRight: 30,
+            stoneMidLeft: 35,
+            stoneMidMid: 36,
+            stoneMidRight: 37
+        };
+
+        // Choose tileset based on level
+        this.currentTileset = 'tileset_summer';
+        this.currentTileOffset = (this.currentLevel - 1) * 14; // Different row per level
+
         // Create ground along the entire level
         this.createGround();
 
         // Generate platforms with guaranteed reachability
         this.generatePlatforms();
 
-        // Place letters on platforms
+        // Place letters ONLY on platforms (never blocking ground)
         this.placeLetters();
+
+        // Add decorations
+        this.addDecorations();
     }
 
     createGround() {
-        // Create ground tiles across the level width
-        const tileWidth = 70;
-        for (let x = 0; x < this.levelWidth; x += tileWidth) {
-            // Top layer
-            const topTile = this.platforms.create(x, this.groundY, 'sand_mid');
+        // Create ground using tileset tiles (32x32)
+        const tileSize = 32;
+
+        for (let x = 0; x < this.levelWidth; x += tileSize) {
+            // Top grass layer
+            const topTile = this.platforms.create(x, this.groundY, 'tileset_summer', 1);
             topTile.setOrigin(0, 0);
             topTile.refreshBody();
 
-            // Fill below
-            const fillTile = this.platforms.create(x, this.groundY + 70, 'sand_center');
+            // Dirt fill layer
+            const fillTile = this.platforms.create(x, this.groundY + tileSize, 'tileset_summer', 8);
             fillTile.setOrigin(0, 0);
             fillTile.refreshBody();
+
+            // Second dirt fill layer
+            const fill2Tile = this.platforms.create(x, this.groundY + tileSize * 2, 'tileset_summer', 8);
+            fill2Tile.setOrigin(0, 0);
+            fill2Tile.refreshBody();
         }
     }
 
     generatePlatforms() {
-        // Platform generation parameters - tuned for jump physics
-        // With jumpForce: -620, gravity: 900, speed: 320
-        const minPlatformWidth = 3; // tiles
-        const maxPlatformWidth = 6;
-        const maxJumpHeight = 120; // conservative - player can reach ~200px
-        const maxJumpDistance = 200; // conservative - player can reach ~300px
+        // Jump physics analysis:
+        // jumpForce: -620, gravity: 900, speed: 320
+        // Max jump height: ~213 pixels (practical: ~180)
+        // Max horizontal jump: ~400 pixels (practical: ~300)
+
+        const tileSize = 32;
 
         // Store platforms for letter placement
         this.platformPositions = [];
 
-        // Starting position for first platform (easy to reach from ground)
-        let currentX = 350;
+        // Level sections - each section has a specific pattern
+        const sectionWidth = 600;
+        const numSections = Math.floor(this.levelWidth / sectionWidth);
 
-        // Generate platforms ensuring reachability
-        const numPlatforms = Math.floor(this.levelWidth / 350);
+        for (let section = 0; section < numSections; section++) {
+            const sectionStart = 300 + section * sectionWidth;
+            const pattern = section % 5; // Rotate through 5 patterns
 
-        for (let i = 0; i < numPlatforms; i++) {
-            // Platform width in tiles
-            const platformWidth = Phaser.Math.Between(minPlatformWidth, maxPlatformWidth);
-            const platformPixelWidth = platformWidth * this.tileSize;
-
-            // Platforms at comfortable jumping height (not too high, not too low)
-            // Between 120 and 250 pixels above ground
-            const minY = this.groundY - 250;
-            const maxY = this.groundY - 120;
-
-            // Calculate Y position - gentle variation
-            let newY;
-            if (i === 0) {
-                newY = this.groundY - 140; // First platform easy to reach
-            } else {
-                // New platform within easy jump range of previous
-                const prevPlatform = this.platformPositions[i - 1];
-                const yVariation = Phaser.Math.Between(-80, 80);
-                newY = Phaser.Math.Clamp(prevPlatform.y + yVariation, minY, maxY);
+            switch(pattern) {
+                case 0:
+                    this.createStaircaseSection(sectionStart, tileSize);
+                    break;
+                case 1:
+                    this.createFloatingIslandsSection(sectionStart, tileSize);
+                    break;
+                case 2:
+                    this.createZigzagSection(sectionStart, tileSize);
+                    break;
+                case 3:
+                    this.createBridgeSection(sectionStart, tileSize);
+                    break;
+                case 4:
+                    this.createPyramidSection(sectionStart, tileSize);
+                    break;
             }
-
-            // X spacing - always reachable
-            const xSpacing = Phaser.Math.Between(120, maxJumpDistance);
-            currentX += xSpacing;
-
-            // Don't exceed level width
-            if (currentX + platformPixelWidth > this.levelWidth - 200) break;
-
-            // Create the platform
-            this.createPlatform(currentX, newY, platformWidth);
-
-            // Store position for letter placement
-            this.platformPositions.push({
-                x: currentX + platformPixelWidth / 2,
-                y: newY,
-                width: platformPixelWidth
-            });
-
-            currentX += platformPixelWidth;
         }
     }
 
-    createPlatform(x, y, widthInTiles) {
-        // Create a platform using tiles
-        for (let i = 0; i < widthInTiles; i++) {
-            let tileKey = 'sand_mid';
-            if (i === 0) tileKey = 'sand_left';
-            if (i === widthInTiles - 1) tileKey = 'sand_right';
-            if (widthInTiles === 1) tileKey = 'sand_mid';
+    createStaircaseSection(startX, tileSize) {
+        // Ascending staircase - easy to climb
+        const steps = 4;
+        const stepHeight = 50; // Each step rises 50px
+        const stepWidth = 100; // Each step is 100px wide
 
-            const tile = this.platforms.create(x + (i * this.tileSize), y, tileKey);
+        for (let i = 0; i < steps; i++) {
+            const x = startX + i * stepWidth;
+            const y = this.groundY - 80 - (i * stepHeight);
+            const width = 3 + Math.floor(Math.random() * 2);
+
+            this.createTilesetPlatform(x, y, width, 1, 'grass');
+
+            this.platformPositions.push({
+                x: x + (width * tileSize) / 2,
+                y: y,
+                width: width * tileSize,
+                hasLetter: false
+            });
+        }
+    }
+
+    createFloatingIslandsSection(startX, tileSize) {
+        // Floating islands at varying heights - all reachable from ground or each other
+        const islands = [
+            { x: 0, y: -120, w: 4 },
+            { x: 150, y: -180, w: 3 },
+            { x: 280, y: -140, w: 5 },
+            { x: 430, y: -200, w: 3 }
+        ];
+
+        islands.forEach((island, i) => {
+            const x = startX + island.x;
+            const y = this.groundY + island.y;
+
+            // Vary platform style
+            const style = i % 2 === 0 ? 'grass' : 'orange';
+            this.createTilesetPlatform(x, y, island.w, 1, style);
+
+            this.platformPositions.push({
+                x: x + (island.w * tileSize) / 2,
+                y: y,
+                width: island.w * tileSize,
+                hasLetter: false
+            });
+        });
+    }
+
+    createZigzagSection(startX, tileSize) {
+        // Zigzag pattern - alternating heights
+        const platforms = [
+            { x: 0, y: -100 },
+            { x: 130, y: -170 },
+            { x: 260, y: -100 },
+            { x: 390, y: -170 },
+            { x: 520, y: -130 }
+        ];
+
+        platforms.forEach((plat, i) => {
+            const x = startX + plat.x;
+            const y = this.groundY + plat.y;
+            const width = 3;
+
+            this.createTilesetPlatform(x, y, width, 1, 'stone');
+
+            this.platformPositions.push({
+                x: x + (width * tileSize) / 2,
+                y: y,
+                width: width * tileSize,
+                hasLetter: false
+            });
+        });
+    }
+
+    createBridgeSection(startX, tileSize) {
+        // Long bridge with gaps - player runs across
+        const bridgeY = this.groundY - 150;
+
+        // First platform
+        this.createTilesetPlatform(startX, bridgeY, 5, 1, 'orange');
+        this.platformPositions.push({
+            x: startX + 80,
+            y: bridgeY,
+            width: 5 * tileSize,
+            hasLetter: false
+        });
+
+        // Gap (jumpable)
+
+        // Middle platform
+        this.createTilesetPlatform(startX + 220, bridgeY, 6, 1, 'orange');
+        this.platformPositions.push({
+            x: startX + 220 + 96,
+            y: bridgeY,
+            width: 6 * tileSize,
+            hasLetter: false
+        });
+
+        // Gap
+
+        // End platform
+        this.createTilesetPlatform(startX + 440, bridgeY, 4, 1, 'orange');
+        this.platformPositions.push({
+            x: startX + 440 + 64,
+            y: bridgeY,
+            width: 4 * tileSize,
+            hasLetter: false
+        });
+    }
+
+    createPyramidSection(startX, tileSize) {
+        // Pyramid shape - wide base, narrow top
+        const layers = [
+            { x: 0, y: -80, w: 8 },
+            { x: 48, y: -140, w: 5 },
+            { x: 80, y: -200, w: 3 }
+        ];
+
+        layers.forEach((layer, i) => {
+            const x = startX + layer.x;
+            const y = this.groundY + layer.y;
+
+            this.createTilesetPlatform(x, y, layer.w, 1, 'grass');
+
+            // Only add letter positions on upper layers
+            if (i > 0) {
+                this.platformPositions.push({
+                    x: x + (layer.w * tileSize) / 2,
+                    y: y,
+                    width: layer.w * tileSize,
+                    hasLetter: false
+                });
+            }
+        });
+    }
+
+    createTilesetPlatform(x, y, widthInTiles, heightInTiles, style = 'grass') {
+        const tileSize = 32;
+
+        // Get tile indices based on style
+        let topLeft, topMid, topRight, midLeft, midMid, midRight;
+
+        switch(style) {
+            case 'orange':
+                topLeft = 14; topMid = 15; topRight = 16;
+                midLeft = 21; midMid = 22; midRight = 23;
+                break;
+            case 'stone':
+                topLeft = 28; topMid = 29; topRight = 30;
+                midLeft = 35; midMid = 36; midRight = 37;
+                break;
+            case 'grass':
+            default:
+                topLeft = 0; topMid = 1; topRight = 2;
+                midLeft = 7; midMid = 8; midRight = 9;
+                break;
+        }
+
+        // Create top row
+        for (let i = 0; i < widthInTiles; i++) {
+            let tileFrame;
+            if (widthInTiles === 1) {
+                tileFrame = topMid;
+            } else if (i === 0) {
+                tileFrame = topLeft;
+            } else if (i === widthInTiles - 1) {
+                tileFrame = topRight;
+            } else {
+                tileFrame = topMid;
+            }
+
+            const tile = this.platforms.create(x + (i * tileSize), y, 'tileset_summer', tileFrame);
             tile.setOrigin(0, 0);
-            tile.setScale(0.5); // Scale down 70px tiles to 35px
             tile.refreshBody();
+        }
+
+        // Create bottom rows for thicker platforms
+        for (let row = 1; row < heightInTiles; row++) {
+            for (let i = 0; i < widthInTiles; i++) {
+                let tileFrame;
+                if (widthInTiles === 1) {
+                    tileFrame = midMid;
+                } else if (i === 0) {
+                    tileFrame = midLeft;
+                } else if (i === widthInTiles - 1) {
+                    tileFrame = midRight;
+                } else {
+                    tileFrame = midMid;
+                }
+
+                const tile = this.platforms.create(x + (i * tileSize), y + (row * tileSize), 'tileset_summer', tileFrame);
+                tile.setOrigin(0, 0);
+                tile.refreshBody();
+            }
         }
     }
 
     placeLetters() {
-        // Place letters on platforms only (not on ground to avoid blocking)
-        const numLetters = Math.min(this.platformPositions.length, 8);
+        // IMPORTANT: Letters are ONLY placed on platforms, NEVER on ground
+        // This ensures the player always has a clear path on the ground
 
-        // Shuffle platform positions
-        const shuffledPlatforms = Phaser.Utils.Array.Shuffle([...this.platformPositions]);
+        // Filter platforms that are suitable for letters
+        const validPlatforms = this.platformPositions.filter(p => p.y < this.groundY - 60);
 
-        // Place letter boxes above platforms
+        // Shuffle and select platforms for letters
+        Phaser.Utils.Array.Shuffle(validPlatforms);
+
+        // Place letters on a subset of platforms (not all)
+        const numLetters = Math.min(validPlatforms.length, 10);
+
         for (let i = 0; i < numLetters; i++) {
-            const platform = shuffledPlatforms[i];
-            if (!platform) continue;
+            const platform = validPlatforms[i];
+            if (!platform || platform.hasLetter) continue;
 
-            // Place the letter box above the platform (reachable by jumping)
-            const letterY = platform.y - 60;
+            // Place letter box ABOVE the platform (player jumps to get it)
+            const letterY = platform.y - 55;
 
             this.createLetterBox(platform.x, letterY, null, false, true);
+            platform.hasLetter = true;
         }
+    }
 
-        // Place a few floating letters high above ground (player jumps to collect)
-        const floatingPositions = [500, 1000, 1500, 2000, 2500];
-        floatingPositions.forEach(x => {
-            if (x < this.levelWidth - 200) {
-                // High enough that player must jump, but reachable
-                const floatY = this.groundY - 180;
-                this.createLetterBox(x, floatY, null, false, true);
-            }
-        });
+    addDecorations() {
+        // Add decorative elements using tileset objects
+        // These don't have collision - purely visual
+
+        const decorPositions = [];
+
+        // Add some background decorations at random positions
+        for (let x = 200; x < this.levelWidth - 200; x += Phaser.Math.Between(200, 400)) {
+            // Small grass tufts or rocks near ground
+            const decorY = this.groundY - 16;
+            const decorFrame = Phaser.Math.Between(42, 48); // Object frames
+
+            const decor = this.add.image(x, decorY, 'tileset_summer', decorFrame);
+            decor.setOrigin(0.5, 1);
+            decor.setDepth(5);
+            this.decorations.add(decor);
+        }
     }
 
     createLetterBox(x, y, letter, isCorrect, isPlaceholder = false) {
