@@ -23,9 +23,12 @@ class GameScene extends Phaser.Scene {
         this.currentTarget = null;
         this.targetLetter = null;
 
-        // Level dimensions - longer level for Mario-like exploration
-        this.levelWidth = 6000;
+        // Level dimensions - endless runner style
         this.levelHeight = 720;
+        this.chunkWidth = 800;  // Width of each procedurally generated chunk
+        this.generatedUpToX = 0;  // How far we've generated terrain
+        this.cleanedUpToX = 0;  // How far we've cleaned up old terrain
+        this.initialChunks = 4;  // Generate 4 chunks at start (3200px)
 
         // Platform generation settings
         this.tileSize = 32;
@@ -55,8 +58,9 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
-        // Set world bounds for the level
-        this.physics.world.setBounds(0, 0, this.levelWidth, this.levelHeight);
+        // Set world bounds - very large for endless runner (will expand as needed)
+        this.maxWorldWidth = 100000;  // 100k pixels max (effectively endless)
+        this.physics.world.setBounds(0, 0, this.maxWorldWidth, this.levelHeight);
 
         // Create game layers in order
         this.createBackground();
@@ -84,39 +88,73 @@ class GameScene extends Phaser.Scene {
             3: { sky: 0xB8D4E8, tint: 0xC4E8FF }        // Winter: cool blue/white
         };
 
-        const theme = levelThemes[this.currentLevel] || levelThemes[1];
+        this.levelTheme = levelThemes[this.currentLevel] || levelThemes[1];
 
-        // Create sky that fills the level
-        this.add.rectangle(this.levelWidth / 2, this.levelHeight / 2, this.levelWidth, this.levelHeight, theme.sky);
+        // Create sky that fills the screen (fixed, doesn't scroll)
+        this.sky = this.add.rectangle(640, 360, 1280, 720, this.levelTheme.sky);
+        this.sky.setScrollFactor(0);
+        this.sky.setDepth(-100);
 
-        // Parallax background layers (will scroll with camera)
-        this.parallaxLayers = [];
+        // Parallax background layers - create enough for seamless scrolling
+        // These will be repositioned as player moves
+        this.parallaxLayers = {
+            mountains: [],
+            far: [],
+            mid: []
+        };
 
-        // Mountains (furthest back)
-        for (let x = 0; x < this.levelWidth + 1280; x += 1280) {
-            const mountains = this.add.image(x, this.levelHeight / 2, 'parallax_mountains');
+        // Create 3 copies of each layer for seamless wrapping
+        for (let i = 0; i < 3; i++) {
+            const mountains = this.add.image(i * 1280, this.levelHeight / 2, 'parallax_mountains');
             mountains.setScrollFactor(0.2);
-            this.parallaxLayers.push(mountains);
-        }
+            mountains.setDepth(-90);
+            if (this.levelTheme.tint) mountains.setTint(this.levelTheme.tint);
+            this.parallaxLayers.mountains.push(mountains);
 
-        // Far terrain
-        for (let x = 0; x < this.levelWidth + 1280; x += 1280) {
-            const far = this.add.image(x, this.levelHeight / 2, 'parallax_far');
+            const far = this.add.image(i * 1280, this.levelHeight / 2, 'parallax_far');
             far.setScrollFactor(0.4);
-            this.parallaxLayers.push(far);
-        }
+            far.setDepth(-80);
+            if (this.levelTheme.tint) far.setTint(this.levelTheme.tint);
+            this.parallaxLayers.far.push(far);
 
-        // Mid terrain
-        for (let x = 0; x < this.levelWidth + 1280; x += 1280) {
-            const mid = this.add.image(x, this.levelHeight / 2, 'parallax_mid');
+            const mid = this.add.image(i * 1280, this.levelHeight / 2, 'parallax_mid');
             mid.setScrollFactor(0.6);
-            this.parallaxLayers.push(mid);
+            mid.setDepth(-70);
+            if (this.levelTheme.tint) mid.setTint(this.levelTheme.tint);
+            this.parallaxLayers.mid.push(mid);
         }
+    }
 
-        // Apply tint based on level theme
-        if (theme.tint) {
-            this.parallaxLayers.forEach(layer => layer.setTint(theme.tint));
-        }
+    updateParallaxBackground() {
+        // Wrap parallax layers as player moves for seamless infinite scrolling
+        const camX = this.cameras.main.scrollX;
+
+        // Helper to wrap a layer
+        const wrapLayer = (layers, scrollFactor) => {
+            const layerWidth = 1280;
+            const effectiveX = camX * scrollFactor;
+
+            layers.forEach((layer, i) => {
+                // Calculate where this layer should be
+                const baseX = i * layerWidth;
+                let targetX = baseX - Math.floor(effectiveX / (layerWidth * 3)) * layerWidth * 3;
+
+                // If layer is too far left, wrap it to the right
+                while (targetX < effectiveX - layerWidth) {
+                    targetX += layerWidth * 3;
+                }
+                // If layer is too far right, wrap it to the left
+                while (targetX > effectiveX + layerWidth * 3) {
+                    targetX -= layerWidth * 3;
+                }
+
+                layer.x = targetX;
+            });
+        };
+
+        wrapLayer(this.parallaxLayers.mountains, 0.2);
+        wrapLayer(this.parallaxLayers.far, 0.4);
+        wrapLayer(this.parallaxLayers.mid, 0.6);
     }
 
     createLevel() {
@@ -165,84 +203,140 @@ class GameScene extends Phaser.Scene {
             stone: config.accent
         };
 
-        // Create ground along the entire level
-        this.createGround();
+        // Track generated chunks (for cleanup)
+        this.chunkTiles = [];  // Array of { startX, endX, tiles: [] }
+        this.platformPositions = [];
+        this.letterSpawnPoints = [];
 
-        // Generate platforms with guaranteed reachability
-        this.generatePlatforms();
-
-        // Place letters ONLY on platforms (never blocking ground)
-        this.placeLetters();
-
-        // Add decorations
-        this.addDecorations();
+        // Generate initial chunks
+        for (let i = 0; i < this.initialChunks; i++) {
+            this.generateChunk(i * this.chunkWidth);
+        }
+        this.generatedUpToX = this.initialChunks * this.chunkWidth;
     }
 
-    createGround() {
-        // Create ground using level-specific tileset tiles (32x32)
+    generateChunk(startX) {
+        // Generate a single chunk of terrain
         const tileSize = 32;
-        const style = this.tileStyles.grass;
+        const chunkTiles = [];
 
-        for (let x = 0; x < this.levelWidth; x += tileSize) {
-            // Top layer (grass/snow/etc)
+        // Create ground for this chunk
+        for (let x = startX; x < startX + this.chunkWidth; x += tileSize) {
+            const style = this.tileStyles.grass;
+
+            // Top layer
             const topTile = this.platforms.create(x, this.groundY, this.currentTileset, style.topMid);
             topTile.setOrigin(0, 0);
             topTile.refreshBody();
+            chunkTiles.push(topTile);
 
-            // Fill layer 1
+            // Fill layers
             const fillTile = this.platforms.create(x, this.groundY + tileSize, this.currentTileset, style.midMid);
             fillTile.setOrigin(0, 0);
             fillTile.refreshBody();
+            chunkTiles.push(fillTile);
 
-            // Fill layer 2
             const fill2Tile = this.platforms.create(x, this.groundY + tileSize * 2, this.currentTileset, style.midMid);
             fill2Tile.setOrigin(0, 0);
             fill2Tile.refreshBody();
+            chunkTiles.push(fill2Tile);
         }
+
+        // Generate platforms in this chunk
+        const chunkIndex = Math.floor(startX / this.chunkWidth);
+        const difficulty = Math.min(chunkIndex / 20, 0.8);  // Increases over time
+        const patternType = chunkIndex % 5;
+
+        switch(patternType) {
+            case 0:
+                this.createRunningSection(startX, tileSize, difficulty, chunkTiles);
+                break;
+            case 1:
+                this.createStepsSection(startX, tileSize, difficulty, chunkTiles);
+                break;
+            case 2:
+                this.createGapSection(startX, tileSize, difficulty, chunkTiles);
+                break;
+            case 3:
+                this.createMixedSection(startX, tileSize, difficulty, chunkTiles);
+                break;
+            case 4:
+                this.createCrouchSection(startX, tileSize, difficulty, chunkTiles);
+                break;
+        }
+
+        // Place letter spawn points for this chunk
+        this.placeLettersInChunk(startX);
+
+        // Store chunk for later cleanup
+        this.chunkTiles.push({
+            startX: startX,
+            endX: startX + this.chunkWidth,
+            tiles: chunkTiles
+        });
     }
 
-    generatePlatforms() {
-        // Mario-like level design principles:
-        // 1. Flow horizontally - keep player moving right
-        // 2. Safe zones between challenges
-        // 3. Guide with platform placement
-        // 4. Progressive difficulty (easier start, harder later)
+    placeLettersInChunk(startX) {
+        // Add letter spawn points for platforms in this chunk
+        const minSpacing = 300;
+        const chunkPlatforms = this.platformPositions.filter(
+            p => p.x >= startX && p.x < startX + this.chunkWidth && p.y < this.groundY - 60
+        );
 
-        const tileSize = 32;
-        this.platformPositions = [];
+        let lastLetterX = startX - minSpacing;
 
-        // Divide level into segments with increasing difficulty
-        const segmentWidth = 800;
-        const numSegments = Math.floor(this.levelWidth / segmentWidth);
+        // Find last spawn point before this chunk
+        const previousSpawns = this.letterSpawnPoints.filter(sp => sp.x < startX);
+        if (previousSpawns.length > 0) {
+            lastLetterX = previousSpawns[previousSpawns.length - 1].x;
+        }
 
-        for (let seg = 0; seg < numSegments; seg++) {
-            const segStart = 400 + seg * segmentWidth;
-            const difficulty = Math.min(seg / numSegments, 0.8); // 0 to 0.8
-
-            // Alternate between pattern types, getting harder
-            const patternType = seg % 5;
-
-            switch(patternType) {
-                case 0:
-                    this.createRunningSection(segStart, tileSize, difficulty);
-                    break;
-                case 1:
-                    this.createStepsSection(segStart, tileSize, difficulty);
-                    break;
-                case 2:
-                    this.createGapSection(segStart, tileSize, difficulty);
-                    break;
-                case 3:
-                    this.createMixedSection(segStart, tileSize, difficulty);
-                    break;
-                case 4:
-                    this.createCrouchSection(segStart, tileSize, difficulty);
-                    break;
+        chunkPlatforms.forEach(platform => {
+            if (platform.x > lastLetterX + minSpacing && !platform.hasLetter) {
+                this.letterSpawnPoints.push({
+                    x: platform.x,
+                    y: platform.y - 55,
+                    used: false,
+                    platformWidth: platform.width
+                });
+                platform.hasLetter = true;
+                lastLetterX = platform.x;
             }
-        }
+        });
     }
 
-    createRunningSection(startX, tileSize, difficulty) {
+    cleanupOldChunks() {
+        // Remove chunks that are far behind the player to save memory
+        const playerX = this.player ? this.player.x : 0;
+        const cleanupThreshold = 1500;  // Keep 1500px behind player
+
+        this.chunkTiles = this.chunkTiles.filter(chunk => {
+            if (chunk.endX < playerX - cleanupThreshold) {
+                // Destroy all tiles in this chunk
+                chunk.tiles.forEach(tile => {
+                    if (tile && tile.active) {
+                        tile.destroy();
+                    }
+                });
+
+                // Remove associated platform positions
+                this.platformPositions = this.platformPositions.filter(
+                    p => p.x < chunk.startX || p.x >= chunk.endX
+                );
+
+                // Remove associated letter spawn points (keep used ones for tracking)
+                this.letterSpawnPoints = this.letterSpawnPoints.filter(
+                    sp => sp.x < chunk.startX || sp.x >= chunk.endX
+                );
+
+                this.cleanedUpToX = chunk.endX;
+                return false;
+            }
+            return true;
+        });
+    }
+
+    createRunningSection(startX, tileSize, difficulty, chunkTiles = []) {
         // Long horizontal platforms - player keeps running
         // Mario-like: safe area to run, optional higher platform for bonus
 
@@ -250,7 +344,7 @@ class GameScene extends Phaser.Scene {
         const mainY = this.groundY - 100;
         const mainWidth = 12 - Math.floor(difficulty * 4); // Gets shorter with difficulty
 
-        this.createTilesetPlatform(startX, mainY, mainWidth, 1, 'grass');
+        this.createTilesetPlatform(startX, mainY, mainWidth, 1, 'grass', chunkTiles);
         this.platformPositions.push({
             x: startX + (mainWidth * tileSize) / 2,
             y: mainY,
@@ -262,7 +356,7 @@ class GameScene extends Phaser.Scene {
         if (Math.random() > 0.3) {
             const bonusX = startX + 100;
             const bonusY = mainY - 90;
-            this.createTilesetPlatform(bonusX, bonusY, 3, 1, 'orange');
+            this.createTilesetPlatform(bonusX, bonusY, 3, 1, 'orange', chunkTiles);
             this.platformPositions.push({
                 x: bonusX + 48,
                 y: bonusY,
@@ -275,7 +369,7 @@ class GameScene extends Phaser.Scene {
         const gap = 120 + Math.floor(difficulty * 80);
         const contX = startX + mainWidth * tileSize + gap;
         const contWidth = 6;
-        this.createTilesetPlatform(contX, mainY, contWidth, 1, 'grass');
+        this.createTilesetPlatform(contX, mainY, contWidth, 1, 'grass', chunkTiles);
         this.platformPositions.push({
             x: contX + (contWidth * tileSize) / 2,
             y: mainY,
@@ -284,7 +378,7 @@ class GameScene extends Phaser.Scene {
         });
     }
 
-    createStepsSection(startX, tileSize, difficulty) {
+    createStepsSection(startX, tileSize, difficulty, chunkTiles = []) {
         // Ascending/descending steps - classic Mario pattern
         const numSteps = 4;
         const stepSpacing = 140;
@@ -296,7 +390,7 @@ class GameScene extends Phaser.Scene {
             const y = this.groundY - 90 - heightOffset;
             const width = 4 - Math.floor(difficulty * 1.5);
 
-            this.createTilesetPlatform(x, y, Math.max(2, width), 1, 'stone');
+            this.createTilesetPlatform(x, y, Math.max(2, width), 1, 'stone', chunkTiles);
             this.platformPositions.push({
                 x: x + (width * tileSize) / 2,
                 y: y,
@@ -306,7 +400,7 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    createGapSection(startX, tileSize, difficulty) {
+    createGapSection(startX, tileSize, difficulty, chunkTiles = []) {
         // Platforms with gaps - requires jumping
         const platforms = [
             { xOff: 0, w: 5 },
@@ -323,7 +417,7 @@ class GameScene extends Phaser.Scene {
             const y = baseY + yVariation;
             const x = startX + plat.xOff;
 
-            this.createTilesetPlatform(x, y, plat.w, 1, 'orange');
+            this.createTilesetPlatform(x, y, plat.w, 1, 'orange', chunkTiles);
             this.platformPositions.push({
                 x: x + (plat.w * tileSize) / 2,
                 y: y,
@@ -333,7 +427,7 @@ class GameScene extends Phaser.Scene {
         });
     }
 
-    createMixedSection(startX, tileSize, difficulty) {
+    createMixedSection(startX, tileSize, difficulty, chunkTiles = []) {
         // Mix of heights - more exploratory
         const platforms = [
             { x: 0, y: -80, w: 6, style: 'grass' },
@@ -347,7 +441,7 @@ class GameScene extends Phaser.Scene {
             const x = startX + plat.x;
             const y = this.groundY + plat.y;
 
-            this.createTilesetPlatform(x, y, plat.w, 1, plat.style);
+            this.createTilesetPlatform(x, y, plat.w, 1, plat.style, chunkTiles);
             this.platformPositions.push({
                 x: x + (plat.w * tileSize) / 2,
                 y: y,
@@ -357,13 +451,13 @@ class GameScene extends Phaser.Scene {
         });
     }
 
-    createCrouchSection(startX, tileSize, difficulty) {
+    createCrouchSection(startX, tileSize, difficulty, chunkTiles = []) {
         // Low ceiling section - must crouch to pass through
         // Creates a tunnel-like area with platform above
 
         // Ground-level platform
         const groundPlatY = this.groundY - 60;
-        this.createTilesetPlatform(startX, groundPlatY, 10, 1, 'grass');
+        this.createTilesetPlatform(startX, groundPlatY, 10, 1, 'grass', chunkTiles);
         this.platformPositions.push({
             x: startX + (10 * tileSize) / 2,
             y: groundPlatY,
@@ -374,11 +468,11 @@ class GameScene extends Phaser.Scene {
         // Low ceiling above - player must crouch to pass
         // Height is only ~50px above platform (normal player is ~55px, crouched is ~35px)
         const ceilingY = groundPlatY - 45;
-        this.createTilesetPlatform(startX + 80, ceilingY, 6, 1, 'stone');
+        this.createTilesetPlatform(startX + 80, ceilingY, 6, 1, 'stone', chunkTiles);
 
         // Exit platform after tunnel
         const exitX = startX + 400;
-        this.createTilesetPlatform(exitX, groundPlatY, 8, 1, 'grass');
+        this.createTilesetPlatform(exitX, groundPlatY, 8, 1, 'grass', chunkTiles);
         this.platformPositions.push({
             x: exitX + (8 * tileSize) / 2,
             y: groundPlatY,
@@ -390,7 +484,7 @@ class GameScene extends Phaser.Scene {
         if (Math.random() > 0.5) {
             const bonusX = startX + 200;
             const bonusY = this.groundY - 180;
-            this.createTilesetPlatform(bonusX, bonusY, 4, 1, 'orange');
+            this.createTilesetPlatform(bonusX, bonusY, 4, 1, 'orange', chunkTiles);
             this.platformPositions.push({
                 x: bonusX + (4 * tileSize) / 2,
                 y: bonusY,
@@ -400,7 +494,7 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    createTilesetPlatform(x, y, widthInTiles, heightInTiles, style = 'grass') {
+    createTilesetPlatform(x, y, widthInTiles, heightInTiles, style = 'grass', chunkTiles = []) {
         const tileSize = 32;
 
         // Get tile indices from level-specific tileStyles
@@ -423,6 +517,7 @@ class GameScene extends Phaser.Scene {
             const tile = this.platforms.create(x + (i * tileSize), y, this.currentTileset, tileFrame);
             tile.setOrigin(0, 0);
             tile.refreshBody();
+            chunkTiles.push(tile);
         }
 
         // Create bottom rows for thicker platforms
@@ -442,43 +537,11 @@ class GameScene extends Phaser.Scene {
                 const tile = this.platforms.create(x + (i * tileSize), y + (row * tileSize), this.currentTileset, tileFrame);
                 tile.setOrigin(0, 0);
                 tile.refreshBody();
+                chunkTiles.push(tile);
             }
         }
     }
 
-    placeLetters() {
-        // Letter placement - scattered across platforms
-        // - Letters appear on different platforms throughout the level
-        // - Mix of correct and wrong letters
-        // - Player can always avoid wrong letters
-
-        // Sort platforms by X position (left to right)
-        const sortedPlatforms = this.platformPositions
-            .filter(p => p.y < this.groundY - 60)
-            .sort((a, b) => a.x - b.x);
-
-        // Place letters on platforms with reasonable spacing
-        const minSpacing = 300; // Minimum 300px between letters
-        this.letterSpawnPoints = [];
-        let lastLetterX = 0;
-
-        sortedPlatforms.forEach(platform => {
-            // Only place letter if far enough from last one
-            if (platform.x > lastLetterX + minSpacing && !platform.hasLetter) {
-                this.letterSpawnPoints.push({
-                    x: platform.x,
-                    y: platform.y - 55,
-                    used: false,
-                    platformWidth: platform.width
-                });
-                platform.hasLetter = true;
-                lastLetterX = platform.x;
-            }
-        });
-
-        // Initially spawn letters ahead
-        this.spawnLettersAhead();
-    }
 
     spawnLettersAhead() {
         // Spawn individual letters on platforms ahead of player
@@ -582,11 +645,6 @@ class GameScene extends Phaser.Scene {
                 this.spawnNextLetterSet();
             });
         }
-    }
-
-    addDecorations() {
-        // Decorations disabled - the tileset frames were showing as confusing blocks
-        // Future: Add proper decoration sprites (flowers, grass tufts, etc.)
     }
 
     createLetterBox(x, y, letter, isCorrect, isPlaceholder = false) {
@@ -708,8 +766,8 @@ class GameScene extends Phaser.Scene {
     }
 
     setupCamera() {
-        // Set camera bounds to level size
-        this.cameras.main.setBounds(0, 0, this.levelWidth, this.levelHeight);
+        // Set camera bounds to very large world for endless runner
+        this.cameras.main.setBounds(0, 0, this.maxWorldWidth, this.levelHeight);
 
         // Follow player with some deadzone for smoother scrolling
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
@@ -1275,6 +1333,19 @@ class GameScene extends Phaser.Scene {
         // Handle player movement
         this.handlePlayerMovement();
 
+        // Update parallax background for infinite scrolling
+        this.updateParallaxBackground();
+
+        // Generate new chunks ahead of player
+        const lookAhead = 1200;  // Generate when player is within 1200px of edge
+        if (this.player.x + lookAhead > this.generatedUpToX) {
+            this.generateChunk(this.generatedUpToX);
+            this.generatedUpToX += this.chunkWidth;
+        }
+
+        // Cleanup old chunks behind player
+        this.cleanupOldChunks();
+
         // Check if player fell off the world
         if (this.player.y > this.levelHeight) {
             this.loseLife();
@@ -1295,10 +1366,8 @@ class GameScene extends Phaser.Scene {
             }
         }
 
-        // Check if player reached end of level
-        if (this.player.x > this.levelWidth - 200) {
-            this.levelComplete();
-        }
+        // Level completion is handled by collecting all 28 letters
+        // (no longer based on reaching end of fixed level)
     }
 
     handlePlayerMovement() {
@@ -1393,8 +1462,10 @@ class GameScene extends Phaser.Scene {
     respawnPlayer() {
         if (this.isGameOver) return;
 
-        // Respawn at start of level
-        this.player.setPosition(150, this.groundY - 100);
+        // Respawn slightly behind current position (on safe ground)
+        // Ensure we don't respawn before the cleaned-up area
+        const respawnX = Math.max(this.cleanedUpToX + 200, this.player.x - 300);
+        this.player.setPosition(respawnX, this.groundY - 100);
         this.player.setVelocity(0, 0);
 
         // Flash effect
