@@ -67,12 +67,18 @@ class GameScene extends Phaser.Scene {
     }
 
     createBackground() {
-        // Sky color based on level
-        const skyColors = [0x87CEEB, 0xE8D4B8, 0xFFB366];
-        const skyColor = skyColors[(this.currentLevel - 1) % skyColors.length];
+        // Sky color and tints based on level theme
+        // Level 1: Summer (bright blue sky), Level 2: Autumn (warm orange), Level 3: Winter (cool blue/gray)
+        const levelThemes = {
+            1: { sky: 0x87CEEB, tint: null },           // Summer: bright blue
+            2: { sky: 0xE8B87C, tint: 0xFFD4A0 },       // Autumn: warm orange/brown
+            3: { sky: 0xB8D4E8, tint: 0xC4E8FF }        // Winter: cool blue/white
+        };
+
+        const theme = levelThemes[this.currentLevel] || levelThemes[1];
 
         // Create sky that fills the level
-        this.add.rectangle(this.levelWidth / 2, this.levelHeight / 2, this.levelWidth, this.levelHeight, skyColor);
+        this.add.rectangle(this.levelWidth / 2, this.levelHeight / 2, this.levelWidth, this.levelHeight, theme.sky);
 
         // Parallax background layers (will scroll with camera)
         this.parallaxLayers = [];
@@ -98,10 +104,9 @@ class GameScene extends Phaser.Scene {
             this.parallaxLayers.push(mid);
         }
 
-        // Apply tint based on level
-        const tints = [null, 0xC4D4E0, 0xFFD4A0];
-        if (tints[this.currentLevel - 1]) {
-            this.parallaxLayers.forEach(layer => layer.setTint(tints[this.currentLevel - 1]));
+        // Apply tint based on level theme
+        if (theme.tint) {
+            this.parallaxLayers.forEach(layer => layer.setTint(theme.tint));
         }
     }
 
@@ -116,35 +121,40 @@ class GameScene extends Phaser.Scene {
     }
 
     generateLevel() {
-        // Tileset configuration - frame indices for summer tileset
-        // Row 0-1: Grass/dirt (0-13), Row 2-3: Orange ground (14-27), etc.
-        this.tileConfig = {
-            // Grass platform tiles (from summer tileset)
-            grassTopLeft: 0,
-            grassTopMid: 1,
-            grassTopRight: 2,
-            grassMidLeft: 7,
-            grassMidMid: 8,
-            grassMidRight: 9,
-            // Orange/brown platform tiles
-            orangeTopLeft: 14,
-            orangeTopMid: 15,
-            orangeTopRight: 16,
-            orangeMidLeft: 21,
-            orangeMidMid: 22,
-            orangeMidRight: 23,
-            // Stone platform tiles
-            stoneTopLeft: 28,
-            stoneTopMid: 29,
-            stoneTopRight: 30,
-            stoneMidLeft: 35,
-            stoneMidMid: 36,
-            stoneMidRight: 37
+        // Choose tileset based on level - each has unique visual theme
+        // Level 1: Summer (green grass), Level 2: Autumn (orange/brown), Level 3: Winter (snow/ice)
+        const tilesetConfig = {
+            1: {
+                tileset: 'tileset_summer',
+                // Summer: grass top row, dirt fill
+                primary: { topLeft: 0, topMid: 1, topRight: 2, midLeft: 7, midMid: 8, midRight: 9 },
+                secondary: { topLeft: 14, topMid: 15, topRight: 16, midLeft: 21, midMid: 22, midRight: 23 },
+                accent: { topLeft: 28, topMid: 29, topRight: 30, midLeft: 35, midMid: 36, midRight: 37 }
+            },
+            2: {
+                tileset: 'tileset_autumn',
+                // Autumn: orange/brown theme with varied textures
+                primary: { topLeft: 0, topMid: 1, topRight: 2, midLeft: 5, midMid: 6, midRight: 7 },
+                secondary: { topLeft: 10, topMid: 11, topRight: 12, midLeft: 15, midMid: 16, midRight: 17 },
+                accent: { topLeft: 20, topMid: 21, topRight: 22, midLeft: 25, midMid: 26, midRight: 27 }
+            },
+            3: {
+                tileset: 'tileset_winter',
+                // Winter: snow/ice platforms with cyan accents
+                primary: { topLeft: 7, topMid: 8, topRight: 9, midLeft: 14, midMid: 15, midRight: 16 },
+                secondary: { topLeft: 28, topMid: 29, topRight: 30, midLeft: 35, midMid: 36, midRight: 37 },
+                accent: { topLeft: 42, topMid: 43, topRight: 44, midLeft: 49, midMid: 50, midRight: 51 }
+            }
         };
 
-        // Choose tileset based on level
-        this.currentTileset = 'tileset_summer';
-        this.currentTileOffset = (this.currentLevel - 1) * 14; // Different row per level
+        // Get config for current level (default to level 1 if not found)
+        const config = tilesetConfig[this.currentLevel] || tilesetConfig[1];
+        this.currentTileset = config.tileset;
+        this.tileStyles = {
+            grass: config.primary,
+            orange: config.secondary,
+            stone: config.accent
+        };
 
         // Create ground along the entire level
         this.createGround();
@@ -160,22 +170,23 @@ class GameScene extends Phaser.Scene {
     }
 
     createGround() {
-        // Create ground using tileset tiles (32x32)
+        // Create ground using level-specific tileset tiles (32x32)
         const tileSize = 32;
+        const style = this.tileStyles.grass;
 
         for (let x = 0; x < this.levelWidth; x += tileSize) {
-            // Top grass layer
-            const topTile = this.platforms.create(x, this.groundY, 'tileset_summer', 1);
+            // Top layer (grass/snow/etc)
+            const topTile = this.platforms.create(x, this.groundY, this.currentTileset, style.topMid);
             topTile.setOrigin(0, 0);
             topTile.refreshBody();
 
-            // Dirt fill layer
-            const fillTile = this.platforms.create(x, this.groundY + tileSize, 'tileset_summer', 8);
+            // Fill layer 1
+            const fillTile = this.platforms.create(x, this.groundY + tileSize, this.currentTileset, style.midMid);
             fillTile.setOrigin(0, 0);
             fillTile.refreshBody();
 
-            // Second dirt fill layer
-            const fill2Tile = this.platforms.create(x, this.groundY + tileSize * 2, 'tileset_summer', 8);
+            // Fill layer 2
+            const fill2Tile = this.platforms.create(x, this.groundY + tileSize * 2, this.currentTileset, style.midMid);
             fill2Tile.setOrigin(0, 0);
             fill2Tile.refreshBody();
         }
@@ -359,24 +370,9 @@ class GameScene extends Phaser.Scene {
     createTilesetPlatform(x, y, widthInTiles, heightInTiles, style = 'grass') {
         const tileSize = 32;
 
-        // Get tile indices based on style
-        let topLeft, topMid, topRight, midLeft, midMid, midRight;
-
-        switch(style) {
-            case 'orange':
-                topLeft = 14; topMid = 15; topRight = 16;
-                midLeft = 21; midMid = 22; midRight = 23;
-                break;
-            case 'stone':
-                topLeft = 28; topMid = 29; topRight = 30;
-                midLeft = 35; midMid = 36; midRight = 37;
-                break;
-            case 'grass':
-            default:
-                topLeft = 0; topMid = 1; topRight = 2;
-                midLeft = 7; midMid = 8; midRight = 9;
-                break;
-        }
+        // Get tile indices from level-specific tileStyles
+        const tileStyle = this.tileStyles[style] || this.tileStyles.grass;
+        const { topLeft, topMid, topRight, midLeft, midMid, midRight } = tileStyle;
 
         // Create top row
         for (let i = 0; i < widthInTiles; i++) {
@@ -391,7 +387,7 @@ class GameScene extends Phaser.Scene {
                 tileFrame = topMid;
             }
 
-            const tile = this.platforms.create(x + (i * tileSize), y, 'tileset_summer', tileFrame);
+            const tile = this.platforms.create(x + (i * tileSize), y, this.currentTileset, tileFrame);
             tile.setOrigin(0, 0);
             tile.refreshBody();
         }
@@ -410,7 +406,7 @@ class GameScene extends Phaser.Scene {
                     tileFrame = midMid;
                 }
 
-                const tile = this.platforms.create(x + (i * tileSize), y + (row * tileSize), 'tileset_summer', tileFrame);
+                const tile = this.platforms.create(x + (i * tileSize), y + (row * tileSize), this.currentTileset, tileFrame);
                 tile.setOrigin(0, 0);
                 tile.refreshBody();
             }
@@ -443,18 +439,24 @@ class GameScene extends Phaser.Scene {
     }
 
     addDecorations() {
-        // Add decorative elements using tileset objects
+        // Add decorative elements - level-specific
         // These don't have collision - purely visual
 
-        const decorPositions = [];
+        // Level-specific decoration frames
+        const decorConfig = {
+            1: { frames: [42, 43, 44, 45, 46, 47, 48], tileset: 'tileset_summer' },
+            2: { frames: [30, 31, 32, 33, 34], tileset: 'tileset_autumn' },
+            3: { frames: [56, 57, 58, 59, 60], tileset: 'tileset_winter' }
+        };
+
+        const config = decorConfig[this.currentLevel] || decorConfig[1];
 
         // Add some background decorations at random positions
         for (let x = 200; x < this.levelWidth - 200; x += Phaser.Math.Between(200, 400)) {
-            // Small grass tufts or rocks near ground
             const decorY = this.groundY - 16;
-            const decorFrame = Phaser.Math.Between(42, 48); // Object frames
+            const decorFrame = config.frames[Phaser.Math.Between(0, config.frames.length - 1)];
 
-            const decor = this.add.image(x, decorY, 'tileset_summer', decorFrame);
+            const decor = this.add.image(x, decorY, config.tileset, decorFrame);
             decor.setOrigin(0.5, 1);
             decor.setDepth(5);
             this.decorations.add(decor);

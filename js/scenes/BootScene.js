@@ -154,8 +154,13 @@ class BootScene extends Phaser.Scene {
             frameWidth: 32,
             frameHeight: 32
         });
-        // Autumn tileset - brown/orange platforms
+        // Autumn tileset - brown/orange platforms (Level 2)
         this.load.spritesheet('tileset_autumn', basePath + 'images/tileset/autumn_.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        // Winter tileset - snow/ice platforms (Level 3)
+        this.load.spritesheet('tileset_winter', basePath + 'images/tileset/winter_.png', {
             frameWidth: 32,
             frameHeight: 32
         });
@@ -169,6 +174,23 @@ class BootScene extends Phaser.Scene {
             frameWidth: 32,
             frameHeight: 32
         });
+
+        // --- HIGH FOREST TILESET (Level 2) ---
+        // 16x16 pixel tiles, fantasy forest theme
+        this.load.spritesheet('tileset_forest', basePath + 'images/Legacy-Fantasy - High Forest 2.3/Assets/Tiles.png', {
+            frameWidth: 16,
+            frameHeight: 16
+        });
+        this.load.image('forest_background', basePath + 'images/Legacy-Fantasy - High Forest 2.3/Background/Background.png');
+        this.load.image('forest_trees', basePath + 'images/Legacy-Fantasy - High Forest 2.3/Assets/Tree-Assets.png');
+        this.load.image('forest_rocks', basePath + 'images/Legacy-Fantasy - High Forest 2.3/Assets/Props-Rocks.png');
+
+        // --- MOSSY TILESET (Level 3) ---
+        // Pre-made floating platforms for cave/underground theme
+        this.load.image('mossy_platforms', basePath + 'images/Mossy Tileset/Mossy - FloatingPlatforms.png');
+        this.load.image('mossy_tileset', basePath + 'images/Mossy Tileset/Mossy - TileSet.png');
+        this.load.image('mossy_decorations', basePath + 'images/Mossy Tileset/Mossy - Decorations&Hazards.png');
+        this.load.image('mossy_hills', basePath + 'images/Mossy Tileset/Mossy - MossyHills.png');
 
         // --- COLLECTIBLES (Fruits from Pixel Adventure) ---
         this.load.spritesheet('apple', basePath + 'images/items/Apple.png', {
