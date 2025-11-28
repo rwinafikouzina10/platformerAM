@@ -442,15 +442,15 @@ class GameScene extends Phaser.Scene {
         // Take next few spawn points
         const pointsToUse = aheadPoints.slice(0, 5);
 
-        // Ensure at least one correct letter in this batch
-        let correctPlaced = false;
+        // Randomly decide which index will have the correct letter
+        // This ensures the correct letter isn't always first
+        const correctIndex = Phaser.Math.Between(0, Math.max(0, pointsToUse.length - 1));
 
         pointsToUse.forEach((spawnPoint, index) => {
             spawnPoint.used = true;
 
-            // Decide if this letter should be correct or wrong
-            // First letter is always correct, others have 30% chance
-            const shouldBeCorrect = !correctPlaced && (index === 0 || Math.random() < 0.3);
+            // This index was randomly chosen to have the correct letter
+            const shouldBeCorrect = (index === correctIndex);
 
             let letterChar;
             let isCorrect = false;
@@ -462,7 +462,6 @@ class GameScene extends Phaser.Scene {
                     letterChar = this.currentLevel === 1 ? targetForms[0] :
                         targetForms[Phaser.Math.Between(0, targetForms.length - 1)];
                     isCorrect = true;
-                    correctPlaced = true;
                 } else {
                     // Wrong letter
                     let wrongLetterData;
