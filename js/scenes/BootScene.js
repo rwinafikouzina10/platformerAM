@@ -482,14 +482,20 @@ class BootScene extends Phaser.Scene {
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
+        // Get the game container and canvas for proper positioning
+        const gameContainer = document.getElementById('game-container');
+        const canvas = this.game.canvas;
+
         // Create HTML input element
         const inputElement = document.createElement('input');
         inputElement.type = 'text';
         inputElement.placeholder = 'Voer je naam in...';
         inputElement.maxLength = 20;
         inputElement.id = 'playerNameInput';
+
+        // Position the input relative to the game container
         inputElement.style.cssText = `
-            position: fixed;
+            position: absolute;
             width: 300px;
             padding: 15px 20px;
             font-size: 24px;
@@ -501,18 +507,64 @@ class BootScene extends Phaser.Scene {
             color: #ffffff;
             outline: none;
             z-index: 9999;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, 0);
+            box-sizing: border-box;
         `;
 
-        document.body.appendChild(inputElement);
+        // Add to game container instead of body (so it scales with the game)
+        if (gameContainer) {
+            gameContainer.style.position = 'relative';
+            gameContainer.appendChild(inputElement);
+
+            // Position based on canvas scaling
+            const updateInputPosition = () => {
+                const canvasRect = canvas.getBoundingClientRect();
+                const scaleX = canvasRect.width / width;
+                const scaleY = canvasRect.height / height;
+
+                // Position at game coordinates (center x, between prompt and button)
+                const gameX = width / 2;
+                const gameY = height / 2 + 130; // Between prompt (y+70) and button (y+200)
+
+                // Convert to screen coordinates relative to canvas
+                const screenX = gameX * scaleX;
+                const screenY = gameY * scaleY;
+
+                // Calculate offset from container to canvas
+                const containerRect = gameContainer.getBoundingClientRect();
+                const offsetX = canvasRect.left - containerRect.left;
+                const offsetY = canvasRect.top - containerRect.top;
+
+                inputElement.style.left = `${offsetX + screenX - 150}px`; // 150 = half of 300px width
+                inputElement.style.top = `${offsetY + screenY}px`;
+
+                // Scale font size with canvas
+                const scale = Math.min(scaleX, scaleY);
+                inputElement.style.fontSize = `${24 * scale}px`;
+                inputElement.style.padding = `${15 * scale}px ${20 * scale}px`;
+                inputElement.style.width = `${300 * scale}px`;
+                inputElement.style.left = `${offsetX + screenX - (150 * scale)}px`;
+            };
+
+            updateInputPosition();
+
+            // Update on resize
+            window.addEventListener('resize', updateInputPosition);
+            this.inputPositionHandler = updateInputPosition;
+        } else {
+            // Fallback: add to body with fixed positioning
+            inputElement.style.position = 'fixed';
+            inputElement.style.left = '50%';
+            inputElement.style.top = '50%';
+            inputElement.style.transform = 'translate(-50%, 0)';
+            document.body.appendChild(inputElement);
+        }
+
         this.nameInput = inputElement;
 
         // Focus the input
         setTimeout(() => inputElement.focus(), 100);
 
-        // Create start button
+        // Create start button using Phaser (visible inside the game)
         const startBtn = this.add.text(width / 2, height / 2 + 200, 'Start!', {
             fontFamily: 'Arial',
             fontSize: '32px',
@@ -542,6 +594,11 @@ class BootScene extends Phaser.Scene {
 
             // Update the title display
             this.nameText.setText(`${name}'s`);
+
+            // Clean up resize listener
+            if (this.inputPositionHandler) {
+                window.removeEventListener('resize', this.inputPositionHandler);
+            }
 
             // Remove the input element
             this.nameInput.remove();
