@@ -1,5 +1,5 @@
 /**
- * MenuScene - Level selection screen
+ * MenuScene - Level selection screen for Ayden Moussa's LetterQuest
  */
 class MenuScene extends Phaser.Scene {
     constructor() {
@@ -10,69 +10,97 @@ class MenuScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        // Background
-        this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e);
+        // Desert gradient background
+        this.createBackground(width, height);
 
-        // Title
-        this.add.text(width / 2, 80, 'Faris & De Letter Oase', {
-            fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '48px',
-            color: '#f4d03f',
-            fontStyle: 'bold'
-        }).setOrigin(0.5);
+        // Title area with decorative panel
+        this.createTitleArea(width);
 
-        // Arabic subtitle
-        this.add.text(width / 2, 130, 'فارس وواحة الحروف', {
-            fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '32px',
-            color: '#ffffff'
-        }).setOrigin(0.5);
+        // Difficulty selector
+        this.createDifficultySelector(width, 200);
 
-        // Difficulty selection title
-        this.add.text(width / 2, 190, 'Snelheid:', {
+        // Level selection
+        this.createLevelSelection(width);
+
+        // Footer instruction
+        this.add.text(width / 2, height - 30, 'Luister naar de letter en verzamel de juiste!', {
             fontFamily: 'Arial',
-            fontSize: '22px',
-            color: '#98D8E8',
-            fontStyle: 'bold'
-        }).setOrigin(0.5);
-
-        // Create difficulty selector
-        this.createDifficultySelector(width / 2, 230);
-
-        // Level selection title
-        this.add.text(width / 2, 290, 'Kies een niveau:', {
-            fontFamily: 'Arial',
-            fontSize: '24px',
-            color: '#98D8E8',
-            fontStyle: 'bold'
-        }).setOrigin(0.5);
-
-        // Get saved progress
-        const unlockedLevel = parseInt(localStorage.getItem('farisUnlockedLevel') || '1');
-        const completedLetters = JSON.parse(localStorage.getItem('farisCompletedLetters') || '{}');
-
-        // Level buttons (adjusted Y positions)
-        this.createLevelButton(width / 2, 380, 1, 'Niveau 1', 'Alleen losse letters', 'ب ت ث', true, unlockedLevel, completedLetters);
-        this.createLevelButton(width / 2, 480, 2, 'Niveau 2', 'Alle lettervormen', 'بـ ـبـ ـب', unlockedLevel >= 2, unlockedLevel, completedLetters);
-        this.createLevelButton(width / 2, 580, 3, 'Niveau 3', 'Met harakat', 'بَ بِ بُ', unlockedLevel >= 3, unlockedLevel, completedLetters);
-
-        // Instructions
-        this.add.text(width / 2, 670, 'Luister naar de letter en verzamel de juiste!', {
-            fontFamily: 'Arial',
-            fontSize: '18px',
-            color: '#888888'
+            fontSize: '16px',
+            color: '#aaaaaa'
         }).setOrigin(0.5);
 
         // Camera fade in
         this.cameras.main.fadeIn(500, 0, 0, 0);
     }
 
-    createDifficultySelector(x, y) {
+    createBackground(width, height) {
+        // Create gradient-like background
+        const bg = this.add.graphics();
+
+        // Dark blue base
+        bg.fillStyle(0x1a1a2e);
+        bg.fillRect(0, 0, width, height);
+
+        // Add some subtle decorations
+        bg.fillStyle(0x16213e, 0.5);
+        bg.fillCircle(100, 600, 200);
+        bg.fillCircle(width - 100, 100, 150);
+
+        // Stars decoration
+        for (let i = 0; i < 30; i++) {
+            const x = Phaser.Math.Between(0, width);
+            const y = Phaser.Math.Between(0, height);
+            const size = Phaser.Math.Between(1, 3);
+            bg.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.2, 0.6));
+            bg.fillCircle(x, y, size);
+        }
+    }
+
+    createTitleArea(width) {
+        // Title background panel
+        const titlePanel = this.add.image(width / 2, 80, 'gui_box_orange');
+        titlePanel.setDisplaySize(500, 120);
+        titlePanel.setAlpha(0.9);
+
+        // Main title - "Ayden Moussa's"
+        this.add.text(width / 2, 50, "Ayden Moussa's", {
+            fontFamily: 'Arial',
+            fontSize: '22px',
+            color: '#5a3d1a',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        // Game title - "LetterQuest"
+        this.add.text(width / 2, 85, 'LetterQuest', {
+            fontFamily: 'Arial',
+            fontSize: '42px',
+            color: '#2c1810',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        // Arabic subtitle
+        this.add.text(width / 2, 120, 'رحلة الحروف العربية', {
+            fontFamily: 'Noto Sans Arabic, Arial',
+            fontSize: '20px',
+            color: '#5a3d1a'
+        }).setOrigin(0.5);
+    }
+
+    createDifficultySelector(width, y) {
+        // Section title
+        this.add.text(width / 2, y, 'Snelheid', {
+            fontFamily: 'Arial',
+            fontSize: '18px',
+            color: '#f4d03f',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
         const difficulties = window.GameData.difficulties;
         const diffKeys = ['slow', 'medium', 'fast'];
-        const buttonWidth = 120;
-        const spacing = 140;
-        const startX = x - spacing;
+        const buttonSize = 70;
+        const spacing = 100;
+        const startX = width / 2 - spacing;
+        const btnY = y + 50;
 
         this.difficultyButtons = {};
 
@@ -80,153 +108,215 @@ class MenuScene extends Phaser.Scene {
             const btnX = startX + (index * spacing);
             const isSelected = window.GameData.currentDifficulty === key;
 
-            // Button background
-            const bg = this.add.rectangle(btnX, y, buttonWidth, 40, isSelected ? 0xf4d03f : 0x2c3e50);
-            bg.setStrokeStyle(2, isSelected ? 0xffffff : 0x555555);
-            bg.setInteractive({ useHandCursor: true });
+            // Button image
+            const btnKey = isSelected ? 'gui_btn_orange' : 'gui_btn_grey';
+            const btn = this.add.image(btnX, btnY, btnKey);
+            btn.setDisplaySize(buttonSize, buttonSize);
+            btn.setInteractive({ useHandCursor: true });
 
-            // Button label
-            const label = this.add.text(btnX, y, difficulties[key].label, {
-                fontFamily: 'Arial',
-                fontSize: '18px',
-                color: isSelected ? '#2c1810' : '#ffffff',
-                fontStyle: 'bold'
+            // Speed icon (using text as icon representation)
+            const speedIcons = { slow: '🐢', medium: '🐇', fast: '⚡' };
+            const icon = this.add.text(btnX, btnY - 5, speedIcons[key], {
+                fontSize: '24px'
             }).setOrigin(0.5);
 
-            this.difficultyButtons[key] = { bg, label };
+            // Label below button
+            const label = this.add.text(btnX, btnY + 50, difficulties[key].label, {
+                fontFamily: 'Arial',
+                fontSize: '14px',
+                color: isSelected ? '#f4d03f' : '#888888',
+                fontStyle: isSelected ? 'bold' : 'normal'
+            }).setOrigin(0.5);
+
+            this.difficultyButtons[key] = { btn, icon, label };
 
             // Click handler
-            bg.on('pointerdown', () => {
+            btn.on('pointerdown', () => {
                 this.selectDifficulty(key);
             });
 
-            bg.on('pointerover', () => {
+            btn.on('pointerover', () => {
                 if (window.GameData.currentDifficulty !== key) {
-                    bg.setFillStyle(0x3d566e);
+                    btn.setTint(0xcccccc);
                 }
             });
 
-            bg.on('pointerout', () => {
-                if (window.GameData.currentDifficulty !== key) {
-                    bg.setFillStyle(0x2c3e50);
-                }
+            btn.on('pointerout', () => {
+                btn.clearTint();
             });
         });
     }
 
     selectDifficulty(key) {
-        // Update game data
         window.GameData.currentDifficulty = key;
         localStorage.setItem('farisDifficulty', key);
 
-        // Update button visuals
         const diffKeys = ['slow', 'medium', 'fast'];
         diffKeys.forEach(k => {
-            const btn = this.difficultyButtons[k];
+            const { btn, label } = this.difficultyButtons[k];
             const isSelected = k === key;
-            btn.bg.setFillStyle(isSelected ? 0xf4d03f : 0x2c3e50);
-            btn.bg.setStrokeStyle(2, isSelected ? 0xffffff : 0x555555);
-            btn.label.setColor(isSelected ? '#2c1810' : '#ffffff');
+
+            btn.setTexture(isSelected ? 'gui_btn_orange' : 'gui_btn_grey');
+            label.setColor(isSelected ? '#f4d03f' : '#888888');
+            label.setFontStyle(isSelected ? 'bold' : 'normal');
         });
     }
 
-    createLevelButton(x, y, level, title, description, arabicExample, unlocked, currentUnlocked, completedLetters) {
-        const buttonWidth = 400;
-        const buttonHeight = 85;
+    createLevelSelection(width) {
+        // Section title
+        this.add.text(width / 2, 320, 'Kies een niveau', {
+            fontFamily: 'Arial',
+            fontSize: '20px',
+            color: '#f4d03f',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
 
-        // Button background
-        const bgColor = unlocked ? 0x2c3e50 : 0x1a1a1a;
-        const bg = this.add.rectangle(x, y, buttonWidth, buttonHeight, bgColor, unlocked ? 1 : 0.5);
-        bg.setStrokeStyle(3, unlocked ? 0xf4d03f : 0x555555);
+        // Get saved progress
+        const unlockedLevel = parseInt(localStorage.getItem('farisUnlockedLevel') || '1');
+        const completedLetters = JSON.parse(localStorage.getItem('farisCompletedLetters') || '{}');
+
+        // Level cards - horizontal layout
+        const cardWidth = 180;
+        const cardSpacing = 200;
+        const startX = width / 2 - cardSpacing;
+        const cardY = 460;
+
+        const levels = [
+            { num: 1, title: 'Niveau 1', desc: 'Losse letters', example: 'ب ت ث' },
+            { num: 2, title: 'Niveau 2', desc: 'Alle vormen', example: 'بـ ـبـ ـب' },
+            { num: 3, title: 'Niveau 3', desc: 'Met harakat', example: 'بَ بِ بُ' }
+        ];
+
+        levels.forEach((level, index) => {
+            const x = startX + (index * cardSpacing);
+            const unlocked = unlockedLevel >= level.num;
+
+            this.createLevelCard(x, cardY, level, unlocked, completedLetters);
+        });
+    }
+
+    createLevelCard(x, y, level, unlocked, completedLetters) {
+        const cardWidth = 170;
+        const cardHeight = 220;
+
+        // Card background
+        const boxKey = unlocked ? 'gui_box_blue' : 'gui_box_blank';
+        const card = this.add.image(x, y, boxKey);
+        card.setDisplaySize(cardWidth, cardHeight);
+
+        if (!unlocked) {
+            card.setTint(0x555555);
+            card.setAlpha(0.7);
+        }
 
         // Level number badge
-        const badgeColor = unlocked ? 0xf4d03f : 0x555555;
-        this.add.circle(x - 160, y, 25, badgeColor);
-        this.add.text(x - 160, y, level.toString(), {
+        const badgeY = y - 70;
+        const badge = this.add.image(x, badgeY, unlocked ? 'gui_btn_orange' : 'gui_btn_grey');
+        badge.setDisplaySize(50, 50);
+
+        this.add.text(x, badgeY, level.num.toString(), {
             fontFamily: 'Arial',
-            fontSize: '28px',
-            color: unlocked ? '#2c1810' : '#888888',
+            fontSize: '24px',
+            color: unlocked ? '#2c1810' : '#666666',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
         // Title
-        this.add.text(x + 20, y - 25, title, {
+        this.add.text(x, y - 25, level.title, {
             fontFamily: 'Arial',
-            fontSize: '24px',
+            fontSize: '18px',
             color: unlocked ? '#ffffff' : '#666666',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
         // Description
-        this.add.text(x + 20, y + 5, description, {
+        this.add.text(x, y + 5, level.desc, {
             fontFamily: 'Arial',
-            fontSize: '16px',
-            color: unlocked ? '#98D8E8' : '#555555'
+            fontSize: '14px',
+            color: unlocked ? '#aaddff' : '#555555'
         }).setOrigin(0.5);
 
         // Arabic example
-        this.add.text(x + 20, y + 30, arabicExample, {
+        this.add.text(x, y + 35, level.example, {
             fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '20px',
+            fontSize: '22px',
             color: unlocked ? '#f4d03f' : '#444444'
         }).setOrigin(0.5);
 
-        // Progress indicator
-        const lettersInLevel = this.getLettersForLevel(level).length;
-        const completed = (completedLetters[level] || []).length;
-        if (unlocked && completed > 0) {
-            this.add.text(x + 170, y, `${completed}/${lettersInLevel}`, {
-                fontFamily: 'Arial',
-                fontSize: '14px',
-                color: '#27ae60'
-            }).setOrigin(0.5);
+        // Progress stars
+        const lettersInLevel = this.getLettersForLevel(level.num).length;
+        const completed = (completedLetters[level.num] || []).length;
+        const progress = completed / lettersInLevel;
+
+        if (unlocked) {
+            this.createProgressStars(x, y + 70, progress);
         }
 
         // Lock icon for locked levels
         if (!unlocked) {
-            this.add.text(x + 170, y, '🔒', {
-                fontSize: '24px'
+            this.add.text(x, y + 70, '🔒', {
+                fontSize: '32px'
             }).setOrigin(0.5);
         }
 
         // Make interactive if unlocked
         if (unlocked) {
-            bg.setInteractive({ useHandCursor: true });
+            card.setInteractive({ useHandCursor: true });
+            badge.setInteractive({ useHandCursor: true });
 
-            bg.on('pointerover', () => {
-                bg.setFillStyle(0x3d566e);
-            });
+            const highlight = () => {
+                card.setTint(0x88bbff);
+                badge.setScale(1.1);
+            };
 
-            bg.on('pointerout', () => {
-                bg.setFillStyle(0x2c3e50);
-            });
+            const unhighlight = () => {
+                card.clearTint();
+                badge.setScale(1);
+            };
 
-            bg.on('pointerdown', () => {
-                this.startLevel(level);
-            });
+            const startGame = () => {
+                this.startLevel(level.num);
+            };
+
+            card.on('pointerover', highlight);
+            card.on('pointerout', unhighlight);
+            card.on('pointerdown', startGame);
+
+            badge.on('pointerover', highlight);
+            badge.on('pointerout', unhighlight);
+            badge.on('pointerdown', startGame);
+        }
+    }
+
+    createProgressStars(x, y, progress) {
+        const starSpacing = 25;
+        const startX = x - starSpacing;
+
+        for (let i = 0; i < 3; i++) {
+            const threshold = (i + 1) / 3;
+            const filled = progress >= threshold;
+            const star = this.add.image(startX + (i * starSpacing), y, filled ? 'gui_star' : 'gui_star_grey');
+            star.setDisplaySize(22, 22);
         }
     }
 
     getLettersForLevel(level) {
         const letters = window.GameData.letters;
         if (level === 3) {
-            // Level 3 includes harakat combinations
             return letters.concat(window.GameData.harakat || []);
         }
         return letters;
     }
 
     startLevel(level) {
-        // Unlock audio on level start (required for tablets/mobile)
+        // Unlock audio on level start
         if (window.AudioSynth) {
             window.AudioSynth.unlock();
         }
 
-        // Store selected level
         window.GameData.currentLevel = level;
         window.GameData.levelLettersCompleted = [];
 
-        // Fade out and start game
         this.cameras.main.fadeOut(500, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
             this.scene.start('GameScene');

@@ -26,26 +26,26 @@ class BootScene extends Phaser.Scene {
         // Background
         this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e);
 
-        // Title (Dutch)
-        this.add.text(width / 2, height / 2 - 100, 'Faris & De Letter Oase', {
-            fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '48px',
+        // Title
+        this.add.text(width / 2, height / 2 - 100, "Ayden Moussa's", {
+            fontFamily: 'Arial',
+            fontSize: '32px',
+            color: '#98D8E8',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        this.add.text(width / 2, height / 2 - 50, 'LetterQuest', {
+            fontFamily: 'Arial',
+            fontSize: '56px',
             color: '#f4d03f',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
         // Arabic subtitle
-        this.add.text(width / 2, height / 2 - 40, 'فارس وواحة الحروف', {
+        this.add.text(width / 2, height / 2 + 10, 'رحلة الحروف العربية', {
             fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '36px',
+            fontSize: '28px',
             color: '#ffffff'
-        }).setOrigin(0.5);
-
-        // Dutch instruction
-        this.add.text(width / 2, height / 2 - 5, 'Leer Arabische letters!', {
-            fontFamily: 'Arial',
-            fontSize: '20px',
-            color: '#98D8E8'
         }).setOrigin(0.5);
 
         // Loading bar background
@@ -111,6 +111,19 @@ class BootScene extends Phaser.Scene {
         this.load.image('gui_btn_resume', basePath + 'images/gui/buttons/PremadeButtons_Resume.png');
         this.load.image('gui_btn_yes', basePath + 'images/gui/buttons/PremadeButtons_YesGreen.png');
         this.load.image('gui_btn_no', basePath + 'images/gui/buttons/PremadeButtons_No.png');
+        this.load.image('gui_btn_select', basePath + 'images/gui/buttons/PremadeButtons_Select.png');
+        this.load.image('gui_btn_check', basePath + 'images/gui/buttons/PremadeButtons_Check.png');
+        // Button backgrounds (for custom buttons)
+        this.load.image('gui_btn_green', basePath + 'images/gui/buttons/IconButton_Large_Green_Rounded.png');
+        this.load.image('gui_btn_orange', basePath + 'images/gui/buttons/IconButton_Large_Orange_Rounded.png');
+        this.load.image('gui_btn_blue', basePath + 'images/gui/buttons/IconButton_Large_Blue_Rounded.png');
+        this.load.image('gui_btn_red', basePath + 'images/gui/buttons/IconButton_Large_Red_Rounded.png');
+        this.load.image('gui_btn_grey', basePath + 'images/gui/buttons/IconButton_Large_GreyOutline_Rounded.png');
+        // Boxes (for panels/cards)
+        this.load.image('gui_box_blue', basePath + 'images/gui/boxes/Box_Blue_Rounded.png');
+        this.load.image('gui_box_orange', basePath + 'images/gui/boxes/Box_Orange_Rounded.png');
+        this.load.image('gui_box_blank', basePath + 'images/gui/boxes/Box_Blank_Rounded.png');
+        this.load.image('gui_box_white', basePath + 'images/gui/boxes/Box_WhiteOutline_Rounded.png');
 
         // --- BACKGROUNDS ---
         this.load.image('bg_yellow', basePath + 'images/background/Yellow.png');
