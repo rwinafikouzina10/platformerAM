@@ -62,8 +62,9 @@ class MenuScene extends Phaser.Scene {
         titlePanel.setDisplaySize(500, 120);
         titlePanel.setAlpha(0.9);
 
-        // Main title - "Ayden Moussa's"
-        this.add.text(width / 2, 50, "Ayden Moussa's", {
+        // Main title - Player's name
+        const playerName = localStorage.getItem('playerName') || 'Speler';
+        this.add.text(width / 2, 50, `${playerName}'s`, {
             fontFamily: 'Arial',
             fontSize: '22px',
             color: '#5a3d1a',

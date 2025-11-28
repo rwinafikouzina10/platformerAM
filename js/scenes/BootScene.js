@@ -26,8 +26,12 @@ class BootScene extends Phaser.Scene {
         // Background
         this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e);
 
-        // Title
-        this.add.text(width / 2, height / 2 - 100, "Ayden Moussa's", {
+        // Check for saved player name
+        const savedName = localStorage.getItem('playerName');
+        const displayName = savedName ? `${savedName}'s` : 'LetterQuest';
+
+        // Title - shows player name if saved
+        this.nameText = this.add.text(width / 2, height / 2 - 100, savedName ? `${savedName}'s` : '', {
             fontFamily: 'Arial',
             fontSize: '32px',
             color: '#98D8E8',
@@ -51,20 +55,20 @@ class BootScene extends Phaser.Scene {
         // Loading bar background
         const barWidth = 400;
         const barHeight = 30;
-        this.add.rectangle(width / 2, height / 2 + 50, barWidth + 4, barHeight + 4, 0xffffff)
+        this.loadingBarBg = this.add.rectangle(width / 2, height / 2 + 80, barWidth + 4, barHeight + 4, 0xffffff)
             .setOrigin(0.5);
 
         // Loading bar fill
         this.loadingBar = this.add.rectangle(
             width / 2 - barWidth / 2,
-            height / 2 + 50,
+            height / 2 + 80,
             0,
             barHeight,
             0xf4d03f
         ).setOrigin(0, 0.5);
 
         // Loading text (Dutch)
-        this.loadingText = this.add.text(width / 2, height / 2 + 100, 'Laden...', {
+        this.loadingText = this.add.text(width / 2, height / 2 + 130, 'Laden...', {
             fontFamily: 'Arial',
             fontSize: '24px',
             color: '#ffffff'
@@ -77,7 +81,15 @@ class BootScene extends Phaser.Scene {
         });
 
         this.load.on('complete', () => {
-            this.loadingText.setText('Tik om te starten!');
+            // Check if we need to ask for name
+            const savedName = localStorage.getItem('playerName');
+            if (!savedName) {
+                this.loadingText.setText('');
+                this.loadingBar.setVisible(false);
+                this.loadingBarBg.setVisible(false);
+            } else {
+                this.loadingText.setText('Tik om te starten!');
+            }
         });
     }
 
@@ -436,17 +448,117 @@ class BootScene extends Phaser.Scene {
         // Set up Web Audio context for sound synthesis
         this.createSoundSynthesizer();
 
-        // Transition to menu on tap - also unlock audio for tablets
-        this.input.once('pointerdown', () => {
-            // Unlock audio on first user interaction (required for tablets/mobile)
-            if (window.AudioSynth) {
-                window.AudioSynth.unlock();
-            }
+        // Check if we need to ask for name
+        const savedName = localStorage.getItem('playerName');
 
-            this.cameras.main.fadeOut(500, 0, 0, 0);
-            this.cameras.main.once('camerafadeoutcomplete', () => {
-                this.scene.start('MenuScene');
+        if (!savedName) {
+            // Show name input form
+            this.showNameInput();
+        } else {
+            // Transition to menu on tap - also unlock audio for tablets
+            this.input.once('pointerdown', () => {
+                this.startGame();
             });
+        }
+    }
+
+    showNameInput() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+
+        // Prompt text
+        this.add.text(width / 2, height / 2 + 70, 'Wat is je naam?', {
+            fontFamily: 'Arial',
+            fontSize: '28px',
+            color: '#98D8E8',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        // Create HTML input element
+        const inputElement = document.createElement('input');
+        inputElement.type = 'text';
+        inputElement.placeholder = 'Voer je naam in...';
+        inputElement.maxLength = 20;
+        inputElement.style.cssText = `
+            position: absolute;
+            width: 300px;
+            padding: 15px 20px;
+            font-size: 24px;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            border: 3px solid #f4d03f;
+            border-radius: 10px;
+            background: #2c1810;
+            color: #ffffff;
+            outline: none;
+        `;
+
+        // Position the input centered on the game canvas
+        const canvas = this.game.canvas;
+        const rect = canvas.getBoundingClientRect();
+        inputElement.style.left = `${rect.left + (rect.width / 2) - 150}px`;
+        inputElement.style.top = `${rect.top + (rect.height / 2) + 100}px`;
+
+        document.body.appendChild(inputElement);
+        this.nameInput = inputElement;
+
+        // Focus the input
+        setTimeout(() => inputElement.focus(), 100);
+
+        // Create start button
+        const startBtn = this.add.text(width / 2, height / 2 + 200, 'Start!', {
+            fontFamily: 'Arial',
+            fontSize: '32px',
+            color: '#ffffff',
+            backgroundColor: '#27ae60',
+            padding: { x: 40, y: 15 }
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+        startBtn.on('pointerover', () => startBtn.setScale(1.1));
+        startBtn.on('pointerout', () => startBtn.setScale(1));
+        startBtn.on('pointerdown', () => this.submitName());
+
+        // Also submit on Enter key
+        inputElement.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.submitName();
+            }
+        });
+    }
+
+    submitName() {
+        const name = this.nameInput.value.trim();
+
+        if (name.length > 0) {
+            // Save the name
+            localStorage.setItem('playerName', name);
+
+            // Update the title display
+            this.nameText.setText(`${name}'s`);
+
+            // Remove the input element
+            this.nameInput.remove();
+
+            // Start the game
+            this.startGame();
+        } else {
+            // Shake the input if empty
+            this.nameInput.style.animation = 'shake 0.3s';
+            setTimeout(() => {
+                this.nameInput.style.animation = '';
+            }, 300);
+        }
+    }
+
+    startGame() {
+        // Unlock audio on first user interaction (required for tablets/mobile)
+        if (window.AudioSynth) {
+            window.AudioSynth.unlock();
+        }
+
+        this.cameras.main.fadeOut(500, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('MenuScene');
         });
     }
 
