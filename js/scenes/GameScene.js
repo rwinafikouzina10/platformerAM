@@ -23,18 +23,18 @@ class GameScene extends Phaser.Scene {
         this.currentTarget = null;
         this.targetLetter = null;
 
-        // Level dimensions (will be set during generation)
-        this.levelWidth = 3000;
+        // Level dimensions - longer level for Mario-like exploration
+        this.levelWidth = 6000;
         this.levelHeight = 720;
 
         // Platform generation settings
         this.tileSize = 32;
         this.groundY = this.levelHeight - 64;
 
-        // Player physics settings (balanced for platformer)
-        this.playerSpeed = 320;
-        this.jumpForce = -620;
-        this.gravity = 900;
+        // Player physics settings - Mario-like feel
+        this.playerSpeed = 380;  // Faster horizontal movement
+        this.jumpForce = -580;   // Slightly lower jump
+        this.gravity = 1000;     // Snappier gravity
 
         // Player state
         this.canJump = true;
@@ -42,7 +42,11 @@ class GameScene extends Phaser.Scene {
 
         // Sound debounce
         this.lastSoundTime = 0;
-        this.soundCooldown = 1500; // ms between sounds
+        this.soundCooldown = 1500;
+
+        // Letter tracking - for respawning missed letters
+        this.activeLetterBoxes = [];
+        this.lastPlayerX = 0;
     }
 
     create() {
@@ -193,57 +197,98 @@ class GameScene extends Phaser.Scene {
     }
 
     generatePlatforms() {
-        // Jump physics analysis:
-        // jumpForce: -620, gravity: 900, speed: 320
-        // Max jump height: ~213 pixels (practical: ~180)
-        // Max horizontal jump: ~400 pixels (practical: ~300)
+        // Mario-like level design principles:
+        // 1. Flow horizontally - keep player moving right
+        // 2. Safe zones between challenges
+        // 3. Guide with platform placement
+        // 4. Progressive difficulty (easier start, harder later)
 
         const tileSize = 32;
-
-        // Store platforms for letter placement
         this.platformPositions = [];
 
-        // Level sections - each section has a specific pattern
-        const sectionWidth = 600;
-        const numSections = Math.floor(this.levelWidth / sectionWidth);
+        // Divide level into segments with increasing difficulty
+        const segmentWidth = 800;
+        const numSegments = Math.floor(this.levelWidth / segmentWidth);
 
-        for (let section = 0; section < numSections; section++) {
-            const sectionStart = 300 + section * sectionWidth;
-            const pattern = section % 5; // Rotate through 5 patterns
+        for (let seg = 0; seg < numSegments; seg++) {
+            const segStart = 400 + seg * segmentWidth;
+            const difficulty = Math.min(seg / numSegments, 0.8); // 0 to 0.8
 
-            switch(pattern) {
+            // Alternate between pattern types, getting harder
+            const patternType = seg % 4;
+
+            switch(patternType) {
                 case 0:
-                    this.createStaircaseSection(sectionStart, tileSize);
+                    this.createRunningSection(segStart, tileSize, difficulty);
                     break;
                 case 1:
-                    this.createFloatingIslandsSection(sectionStart, tileSize);
+                    this.createStepsSection(segStart, tileSize, difficulty);
                     break;
                 case 2:
-                    this.createZigzagSection(sectionStart, tileSize);
+                    this.createGapSection(segStart, tileSize, difficulty);
                     break;
                 case 3:
-                    this.createBridgeSection(sectionStart, tileSize);
-                    break;
-                case 4:
-                    this.createPyramidSection(sectionStart, tileSize);
+                    this.createMixedSection(segStart, tileSize, difficulty);
                     break;
             }
         }
     }
 
-    createStaircaseSection(startX, tileSize) {
-        // Ascending staircase - easy to climb
-        const steps = 4;
-        const stepHeight = 50; // Each step rises 50px
-        const stepWidth = 100; // Each step is 100px wide
+    createRunningSection(startX, tileSize, difficulty) {
+        // Long horizontal platforms - player keeps running
+        // Mario-like: safe area to run, optional higher platform for bonus
 
-        for (let i = 0; i < steps; i++) {
-            const x = startX + i * stepWidth;
-            const y = this.groundY - 80 - (i * stepHeight);
-            const width = 3 + Math.floor(Math.random() * 2);
+        // Main running platform at medium height
+        const mainY = this.groundY - 100;
+        const mainWidth = 12 - Math.floor(difficulty * 4); // Gets shorter with difficulty
 
-            this.createTilesetPlatform(x, y, width, 1, 'grass');
+        this.createTilesetPlatform(startX, mainY, mainWidth, 1, 'grass');
+        this.platformPositions.push({
+            x: startX + (mainWidth * tileSize) / 2,
+            y: mainY,
+            width: mainWidth * tileSize,
+            hasLetter: false
+        });
 
+        // Optional bonus platform above (reward for jumping)
+        if (Math.random() > 0.3) {
+            const bonusX = startX + 100;
+            const bonusY = mainY - 90;
+            this.createTilesetPlatform(bonusX, bonusY, 3, 1, 'orange');
+            this.platformPositions.push({
+                x: bonusX + 48,
+                y: bonusY,
+                width: 3 * tileSize,
+                hasLetter: false
+            });
+        }
+
+        // Continuation platform after gap
+        const gap = 120 + Math.floor(difficulty * 80);
+        const contX = startX + mainWidth * tileSize + gap;
+        const contWidth = 6;
+        this.createTilesetPlatform(contX, mainY, contWidth, 1, 'grass');
+        this.platformPositions.push({
+            x: contX + (contWidth * tileSize) / 2,
+            y: mainY,
+            width: contWidth * tileSize,
+            hasLetter: false
+        });
+    }
+
+    createStepsSection(startX, tileSize, difficulty) {
+        // Ascending/descending steps - classic Mario pattern
+        const numSteps = 4;
+        const stepSpacing = 140;
+        const ascending = Math.random() > 0.5;
+
+        for (let i = 0; i < numSteps; i++) {
+            const x = startX + i * stepSpacing;
+            const heightOffset = ascending ? i * 45 : (numSteps - 1 - i) * 45;
+            const y = this.groundY - 90 - heightOffset;
+            const width = 4 - Math.floor(difficulty * 1.5);
+
+            this.createTilesetPlatform(x, y, Math.max(2, width), 1, 'stone');
             this.platformPositions.push({
                 x: x + (width * tileSize) / 2,
                 y: y,
@@ -253,117 +298,54 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    createFloatingIslandsSection(startX, tileSize) {
-        // Floating islands at varying heights - all reachable from ground or each other
-        const islands = [
-            { x: 0, y: -120, w: 4 },
-            { x: 150, y: -180, w: 3 },
-            { x: 280, y: -140, w: 5 },
-            { x: 430, y: -200, w: 3 }
-        ];
-
-        islands.forEach((island, i) => {
-            const x = startX + island.x;
-            const y = this.groundY + island.y;
-
-            // Vary platform style
-            const style = i % 2 === 0 ? 'grass' : 'orange';
-            this.createTilesetPlatform(x, y, island.w, 1, style);
-
-            this.platformPositions.push({
-                x: x + (island.w * tileSize) / 2,
-                y: y,
-                width: island.w * tileSize,
-                hasLetter: false
-            });
-        });
-    }
-
-    createZigzagSection(startX, tileSize) {
-        // Zigzag pattern - alternating heights
+    createGapSection(startX, tileSize, difficulty) {
+        // Platforms with gaps - requires jumping
         const platforms = [
-            { x: 0, y: -100 },
-            { x: 130, y: -170 },
-            { x: 260, y: -100 },
-            { x: 390, y: -170 },
-            { x: 520, y: -130 }
+            { xOff: 0, w: 5 },
+            { xOff: 220, w: 4 },
+            { xOff: 400, w: 5 },
+            { xOff: 580, w: 3 }
         ];
+
+        const baseY = this.groundY - 120;
 
         platforms.forEach((plat, i) => {
-            const x = startX + plat.x;
-            const y = this.groundY + plat.y;
-            const width = 3;
+            // Slight height variation
+            const yVariation = Math.sin(i * 1.5) * 40;
+            const y = baseY + yVariation;
+            const x = startX + plat.xOff;
 
-            this.createTilesetPlatform(x, y, width, 1, 'stone');
-
+            this.createTilesetPlatform(x, y, plat.w, 1, 'orange');
             this.platformPositions.push({
-                x: x + (width * tileSize) / 2,
+                x: x + (plat.w * tileSize) / 2,
                 y: y,
-                width: width * tileSize,
+                width: plat.w * tileSize,
                 hasLetter: false
             });
         });
     }
 
-    createBridgeSection(startX, tileSize) {
-        // Long bridge with gaps - player runs across
-        const bridgeY = this.groundY - 150;
-
-        // First platform
-        this.createTilesetPlatform(startX, bridgeY, 5, 1, 'orange');
-        this.platformPositions.push({
-            x: startX + 80,
-            y: bridgeY,
-            width: 5 * tileSize,
-            hasLetter: false
-        });
-
-        // Gap (jumpable)
-
-        // Middle platform
-        this.createTilesetPlatform(startX + 220, bridgeY, 6, 1, 'orange');
-        this.platformPositions.push({
-            x: startX + 220 + 96,
-            y: bridgeY,
-            width: 6 * tileSize,
-            hasLetter: false
-        });
-
-        // Gap
-
-        // End platform
-        this.createTilesetPlatform(startX + 440, bridgeY, 4, 1, 'orange');
-        this.platformPositions.push({
-            x: startX + 440 + 64,
-            y: bridgeY,
-            width: 4 * tileSize,
-            hasLetter: false
-        });
-    }
-
-    createPyramidSection(startX, tileSize) {
-        // Pyramid shape - wide base, narrow top
-        const layers = [
-            { x: 0, y: -80, w: 8 },
-            { x: 48, y: -140, w: 5 },
-            { x: 80, y: -200, w: 3 }
+    createMixedSection(startX, tileSize, difficulty) {
+        // Mix of heights - more exploratory
+        const platforms = [
+            { x: 0, y: -80, w: 6, style: 'grass' },
+            { x: 100, y: -160, w: 3, style: 'orange' },
+            { x: 250, y: -100, w: 5, style: 'grass' },
+            { x: 420, y: -180, w: 4, style: 'stone' },
+            { x: 550, y: -120, w: 4, style: 'grass' }
         ];
 
-        layers.forEach((layer, i) => {
-            const x = startX + layer.x;
-            const y = this.groundY + layer.y;
+        platforms.forEach(plat => {
+            const x = startX + plat.x;
+            const y = this.groundY + plat.y;
 
-            this.createTilesetPlatform(x, y, layer.w, 1, 'grass');
-
-            // Only add letter positions on upper layers
-            if (i > 0) {
-                this.platformPositions.push({
-                    x: x + (layer.w * tileSize) / 2,
-                    y: y,
-                    width: layer.w * tileSize,
-                    hasLetter: false
-                });
-            }
+            this.createTilesetPlatform(x, y, plat.w, 1, plat.style);
+            this.platformPositions.push({
+                x: x + (plat.w * tileSize) / 2,
+                y: y,
+                width: plat.w * tileSize,
+                hasLetter: false
+            });
         });
     }
 
@@ -414,28 +396,102 @@ class GameScene extends Phaser.Scene {
     }
 
     placeLetters() {
-        // IMPORTANT: Letters are ONLY placed on platforms, NEVER on ground
-        // This ensures the player always has a clear path on the ground
+        // Mario-like letter placement:
+        // - Only ONE correct letter visible at a time (widely spaced)
+        // - Letters guide the player forward
+        // - If missed, letter respawns ahead
 
-        // Filter platforms that are suitable for letters
-        const validPlatforms = this.platformPositions.filter(p => p.y < this.groundY - 60);
+        // Sort platforms by X position (left to right)
+        const sortedPlatforms = this.platformPositions
+            .filter(p => p.y < this.groundY - 60)
+            .sort((a, b) => a.x - b.x);
 
-        // Shuffle and select platforms for letters
-        Phaser.Utils.Array.Shuffle(validPlatforms);
+        // Space letters far apart - one every ~800 pixels
+        const letterSpacing = 800;
+        this.letterSpawnPoints = [];
 
-        // Place letters on a subset of platforms (not all)
-        const numLetters = Math.min(validPlatforms.length, 10);
+        for (let x = 600; x < this.levelWidth - 400; x += letterSpacing) {
+            // Find nearest platform to this X position
+            const nearestPlatform = sortedPlatforms.find(p =>
+                p.x > x - 200 && p.x < x + 200 && !p.hasLetter
+            );
 
-        for (let i = 0; i < numLetters; i++) {
-            const platform = validPlatforms[i];
-            if (!platform || platform.hasLetter) continue;
-
-            // Place letter box ABOVE the platform (player jumps to get it)
-            const letterY = platform.y - 55;
-
-            this.createLetterBox(platform.x, letterY, null, false, true);
-            platform.hasLetter = true;
+            if (nearestPlatform) {
+                this.letterSpawnPoints.push({
+                    x: nearestPlatform.x,
+                    y: nearestPlatform.y - 55,
+                    used: false
+                });
+                nearestPlatform.hasLetter = true;
+            }
         }
+
+        // Initially spawn first 2 letter boxes (correct + 1 wrong nearby)
+        this.spawnNextLetterSet();
+    }
+
+    spawnNextLetterSet() {
+        // Find next unused spawn point ahead of player
+        const playerX = this.player ? this.player.x : 0;
+
+        // Clear old letter boxes that are behind the player
+        this.clearPassedLetters();
+
+        // Find spawn points ahead
+        const aheadPoints = this.letterSpawnPoints.filter(
+            sp => sp.x > playerX + 200 && !sp.used
+        );
+
+        if (aheadPoints.length === 0) return;
+
+        // Use the first available point
+        const spawnPoint = aheadPoints[0];
+        spawnPoint.used = true;
+
+        // Create the letter box
+        const letterBox = this.createLetterBox(
+            spawnPoint.x,
+            spawnPoint.y,
+            null,
+            false,
+            true
+        );
+
+        if (letterBox) {
+            letterBox.spawnPoint = spawnPoint;
+            this.activeLetterBoxes.push(letterBox);
+        }
+    }
+
+    clearPassedLetters() {
+        if (!this.player) return;
+
+        const playerX = this.player.x;
+
+        // Check for letters that player has passed (more than 400px behind)
+        this.activeLetterBoxes = this.activeLetterBoxes.filter(box => {
+            if (!box.active) return false;
+
+            if (box.x < playerX - 400 && !box.collected) {
+                // Player passed this letter - respawn it ahead
+                if (box.spawnPoint) {
+                    box.spawnPoint.used = false;
+                }
+
+                // Destroy the old box
+                if (box.letterBg) box.letterBg.destroy();
+                if (box.letterText) box.letterText.destroy();
+                box.destroy();
+
+                // Spawn new letter ahead
+                this.time.delayedCall(100, () => {
+                    this.spawnNextLetterSet();
+                });
+
+                return false;
+            }
+            return true;
+        });
     }
 
     addDecorations() {
@@ -1119,6 +1175,25 @@ class GameScene extends Phaser.Scene {
         if (this.player.y > this.levelHeight) {
             this.loseLife();
             this.respawnPlayer();
+        }
+
+        // Mario-like: Check for passed letters and respawn ahead
+        if (this.player.x > this.lastPlayerX + 100) {
+            this.lastPlayerX = this.player.x;
+            this.clearPassedLetters();
+
+            // Ensure there's always a letter ahead
+            const hasLetterAhead = this.activeLetterBoxes.some(
+                box => box.active && box.x > this.player.x + 200
+            );
+            if (!hasLetterAhead) {
+                this.spawnNextLetterSet();
+            }
+        }
+
+        // Check if player reached end of level
+        if (this.player.x > this.levelWidth - 200) {
+            this.levelComplete();
         }
     }
 
