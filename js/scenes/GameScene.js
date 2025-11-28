@@ -396,106 +396,93 @@ class GameScene extends Phaser.Scene {
     }
 
     placeLetters() {
-        // Letter placement with choices:
-        // - 3 letters visible at each spawn point (1 correct + 2 wrong)
-        // - Letters guide the player forward
-        // - If missed, letters respawn ahead
+        // Letter placement - scattered across platforms
+        // - Letters appear on different platforms throughout the level
+        // - Mix of correct and wrong letters
+        // - Player can always avoid wrong letters
 
         // Sort platforms by X position (left to right)
         const sortedPlatforms = this.platformPositions
             .filter(p => p.y < this.groundY - 60)
             .sort((a, b) => a.x - b.x);
 
-        // Space letters far apart - one every ~800 pixels
-        const letterSpacing = 800;
+        // Place letters on platforms with reasonable spacing
+        const minSpacing = 300; // Minimum 300px between letters
         this.letterSpawnPoints = [];
+        let lastLetterX = 0;
 
-        for (let x = 600; x < this.levelWidth - 400; x += letterSpacing) {
-            // Find nearest platform to this X position
-            const nearestPlatform = sortedPlatforms.find(p =>
-                p.x > x - 200 && p.x < x + 200 && !p.hasLetter
-            );
-
-            if (nearestPlatform) {
+        sortedPlatforms.forEach(platform => {
+            // Only place letter if far enough from last one
+            if (platform.x > lastLetterX + minSpacing && !platform.hasLetter) {
                 this.letterSpawnPoints.push({
-                    x: nearestPlatform.x,
-                    y: nearestPlatform.y - 55,
-                    used: false
+                    x: platform.x,
+                    y: platform.y - 55,
+                    used: false,
+                    platformWidth: platform.width
                 });
-                nearestPlatform.hasLetter = true;
+                platform.hasLetter = true;
+                lastLetterX = platform.x;
             }
-        }
+        });
 
-        // Initially spawn first letter set (1 correct + 2 wrong)
-        this.spawnNextLetterSet();
+        // Initially spawn letters ahead
+        this.spawnLettersAhead();
     }
 
-    spawnNextLetterSet() {
-        // Find next unused spawn point ahead of player
+    spawnLettersAhead() {
+        // Spawn individual letters on platforms ahead of player
         const playerX = this.player ? this.player.x : 0;
+        const letters = window.GameData.letters;
 
-        // Clear old letter boxes that are behind the player
-        this.clearPassedLetters();
-
-        // Find spawn points ahead
+        // Find unused spawn points ahead
         const aheadPoints = this.letterSpawnPoints.filter(
-            sp => sp.x > playerX + 200 && !sp.used
+            sp => sp.x > playerX + 100 && !sp.used
         );
 
-        if (aheadPoints.length === 0) return;
+        // Take next few spawn points
+        const pointsToUse = aheadPoints.slice(0, 5);
 
-        // Use the first available point as base
-        const spawnPoint = aheadPoints[0];
-        spawnPoint.used = true;
+        // Ensure at least one correct letter in this batch
+        let correctPlaced = false;
 
-        // Create 3 letter boxes: 1 correct + 2 wrong
-        // Space them horizontally so all are visible
-        const letterSpacing = 120;
-        const positions = [
-            { x: spawnPoint.x - letterSpacing, y: spawnPoint.y },
-            { x: spawnPoint.x, y: spawnPoint.y - 40 },
-            { x: spawnPoint.x + letterSpacing, y: spawnPoint.y }
-        ];
+        pointsToUse.forEach((spawnPoint, index) => {
+            spawnPoint.used = true;
 
-        // Shuffle positions so correct letter is randomly placed
-        Phaser.Utils.Array.Shuffle(positions);
+            // Decide if this letter should be correct or wrong
+            // First letter is always correct, others have 30% chance
+            const shouldBeCorrect = !correctPlaced && (index === 0 || Math.random() < 0.3);
 
-        // Get letter data
-        const letters = window.GameData.letters;
-        let correctLetter, wrongLetters = [];
+            let letterChar;
+            let isCorrect = false;
 
-        if (this.currentTarget) {
-            // Get correct letter
-            const targetForms = this.currentTarget.forms || [this.currentTarget.char];
-            correctLetter = this.currentLevel === 1 ? targetForms[0] :
-                targetForms[Phaser.Math.Between(0, targetForms.length - 1)];
+            if (this.currentTarget) {
+                if (shouldBeCorrect) {
+                    // Correct letter
+                    const targetForms = this.currentTarget.forms || [this.currentTarget.char];
+                    letterChar = this.currentLevel === 1 ? targetForms[0] :
+                        targetForms[Phaser.Math.Between(0, targetForms.length - 1)];
+                    isCorrect = true;
+                    correctPlaced = true;
+                } else {
+                    // Wrong letter
+                    let wrongLetterData;
+                    let attempts = 0;
+                    do {
+                        wrongLetterData = letters[Phaser.Math.Between(0, letters.length - 1)];
+                        attempts++;
+                    } while (wrongLetterData.char === this.currentTarget.char && attempts < 20);
 
-            // Get 2 wrong letters
-            for (let i = 0; i < 2; i++) {
-                let wrongLetterData;
-                let attempts = 0;
-                do {
-                    wrongLetterData = letters[Phaser.Math.Between(0, letters.length - 1)];
-                    attempts++;
-                } while ((wrongLetterData.char === this.currentTarget.char ||
-                         wrongLetters.includes(wrongLetterData.char)) && attempts < 20);
-
-                const wrongForms = wrongLetterData.forms || [wrongLetterData.char];
-                const wrongLetter = this.currentLevel === 1 ? wrongForms[0] :
-                    wrongForms[Phaser.Math.Between(0, wrongForms.length - 1)];
-                wrongLetters.push(wrongLetter);
+                    const wrongForms = wrongLetterData.forms || [wrongLetterData.char];
+                    letterChar = this.currentLevel === 1 ? wrongForms[0] :
+                        wrongForms[Phaser.Math.Between(0, wrongForms.length - 1)];
+                    isCorrect = false;
+                }
             }
-        }
-
-        // Create the 3 letter boxes
-        positions.forEach((pos, index) => {
-            const isCorrect = (index === 0); // First position (after shuffle) is correct
-            const letter = isCorrect ? correctLetter : wrongLetters[index - 1];
 
             const letterBox = this.createLetterBox(
-                pos.x,
-                pos.y,
-                letter || '?',
+                spawnPoint.x,
+                spawnPoint.y,
+                letterChar || '?',
                 isCorrect,
                 !this.currentTarget
             );
@@ -505,6 +492,11 @@ class GameScene extends Phaser.Scene {
                 this.activeLetterBoxes.push(letterBox);
             }
         });
+    }
+
+    spawnNextLetterSet() {
+        // Wrapper for compatibility - just calls spawnLettersAhead
+        this.spawnLettersAhead();
     }
 
     clearPassedLetters() {
