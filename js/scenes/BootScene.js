@@ -168,7 +168,7 @@ class BootScene extends Phaser.Scene {
         this.load.image('sand_hill_left', basePath + 'images/terrain/sandHillLeft.png');
         this.load.image('sand_hill_right', basePath + 'images/terrain/sandHillRight.png');
 
-        // --- TILESET SPRITESHEETS (32x32 tiles) ---
+        // --- TILESET SPRITESHEETS (32x32 tiles) - Legacy ---
         // Summer tileset - grass and dirt platforms
         this.load.spritesheet('tileset_summer', basePath + 'images/tileset/summer_.png', {
             frameWidth: 32,
@@ -193,6 +193,13 @@ class BootScene extends Phaser.Scene {
         this.load.spritesheet('tileset_objects', basePath + 'images/tileset/staticObjects_.png', {
             frameWidth: 32,
             frameHeight: 32
+        });
+
+        // --- PIXEL ADVENTURE TERRAIN (16x16 tiles - clean platformer style) ---
+        // This tileset has clean edges perfect for platformers (no floating issues)
+        this.load.spritesheet('terrain_pixel', basePath + 'images/pixel_adventure_1/Free/Terrain/Terrain (16x16).png', {
+            frameWidth: 16,
+            frameHeight: 16
         });
 
         // --- HIGH FOREST TILESET (Level 2) ---

@@ -176,39 +176,107 @@ class GameScene extends Phaser.Scene {
     }
 
     generateLevel() {
-        // Choose tileset based on level - each has unique visual theme
-        // Level 1: Summer (green grass), Level 2: Autumn (orange/brown), Level 3: Winter (snow/ice)
-        const tilesetConfig = {
-            1: {
-                tileset: 'tileset_summer',
-                // Summer: grass top row, dirt fill
-                primary: { topLeft: 0, topMid: 1, topRight: 2, midLeft: 7, midMid: 8, midRight: 9 },
-                secondary: { topLeft: 14, topMid: 15, topRight: 16, midLeft: 21, midMid: 22, midRight: 23 },
-                accent: { topLeft: 28, topMid: 29, topRight: 30, midLeft: 35, midMid: 36, midRight: 37 }
-            },
-            2: {
-                tileset: 'tileset_autumn',
-                // Autumn: orange/brown theme with varied textures
-                primary: { topLeft: 0, topMid: 1, topRight: 2, midLeft: 5, midMid: 6, midRight: 7 },
-                secondary: { topLeft: 10, topMid: 11, topRight: 12, midLeft: 15, midMid: 16, midRight: 17 },
-                accent: { topLeft: 20, topMid: 21, topRight: 22, midLeft: 25, midMid: 26, midRight: 27 }
-            },
-            3: {
-                tileset: 'tileset_winter',
-                // Winter: snow/ice platforms with cyan accents
-                primary: { topLeft: 7, topMid: 8, topRight: 9, midLeft: 14, midMid: 15, midRight: 16 },
-                secondary: { topLeft: 28, topMid: 29, topRight: 30, midLeft: 35, midMid: 36, midRight: 37 },
-                accent: { topLeft: 42, topMid: 43, topRight: 44, midLeft: 49, midMid: 50, midRight: 51 }
-            }
+        // Use Pixel Adventure terrain tileset (16x16 tiles, scaled 2x to 32x32)
+        // This tileset has clean edges - no floating issues!
+        this.currentTileset = 'terrain_pixel';
+        this.tileScale = 2;  // Scale 16x16 tiles to 32x32
+        this.baseTileSize = 16;
+
+        // Pixel Adventure terrain tile indices (22 columns per row)
+        // Frame index = row * columns + column
+        const cols = 22;
+
+        // Terrain type configurations based on the tileset layout:
+        // Green grass terrain (columns 4-6, rows 0-2)
+        const grass = {
+            topLeft: 0 * cols + 4,   // Frame 4
+            topMid: 0 * cols + 5,    // Frame 5
+            topRight: 0 * cols + 6,  // Frame 6
+            midLeft: 1 * cols + 4,   // Frame 26
+            midMid: 1 * cols + 5,    // Frame 27
+            midRight: 1 * cols + 6,  // Frame 28
+            botLeft: 2 * cols + 4,   // Frame 48
+            botMid: 2 * cols + 5,    // Frame 49
+            botRight: 2 * cols + 6   // Frame 50
         };
 
-        // Get config for current level (default to level 1 if not found)
-        const config = tilesetConfig[this.currentLevel] || tilesetConfig[1];
-        this.currentTileset = config.tileset;
+        // Brown/tan terrain (columns 7-9, rows 0-2)
+        const brown = {
+            topLeft: 0 * cols + 7,
+            topMid: 0 * cols + 8,
+            topRight: 0 * cols + 9,
+            midLeft: 1 * cols + 7,
+            midMid: 1 * cols + 8,
+            midRight: 1 * cols + 9,
+            botLeft: 2 * cols + 7,
+            botMid: 2 * cols + 8,
+            botRight: 2 * cols + 9
+        };
+
+        // Gray stone terrain (columns 10-12, rows 0-2)
+        const stone = {
+            topLeft: 0 * cols + 10,
+            topMid: 0 * cols + 11,
+            topRight: 0 * cols + 12,
+            midLeft: 1 * cols + 10,
+            midMid: 1 * cols + 11,
+            midRight: 1 * cols + 12,
+            botLeft: 2 * cols + 10,
+            botMid: 2 * cols + 11,
+            botRight: 2 * cols + 12
+        };
+
+        // Red brick terrain (columns 13-15, rows 0-2)
+        const brick = {
+            topLeft: 0 * cols + 13,
+            topMid: 0 * cols + 14,
+            topRight: 0 * cols + 15,
+            midLeft: 1 * cols + 13,
+            midMid: 1 * cols + 14,
+            midRight: 1 * cols + 15,
+            botLeft: 2 * cols + 13,
+            botMid: 2 * cols + 14,
+            botRight: 2 * cols + 15
+        };
+
+        // Cyan/teal terrain (columns 0-2, rows 4-6)
+        const cyan = {
+            topLeft: 4 * cols + 0,
+            topMid: 4 * cols + 1,
+            topRight: 4 * cols + 2,
+            midLeft: 5 * cols + 0,
+            midMid: 5 * cols + 1,
+            midRight: 5 * cols + 2,
+            botLeft: 6 * cols + 0,
+            botMid: 6 * cols + 1,
+            botRight: 6 * cols + 2
+        };
+
+        // Purple terrain (columns 9-11, rows 4-6)
+        const purple = {
+            topLeft: 4 * cols + 9,
+            topMid: 4 * cols + 10,
+            topRight: 4 * cols + 11,
+            midLeft: 5 * cols + 9,
+            midMid: 5 * cols + 10,
+            midRight: 5 * cols + 11,
+            botLeft: 6 * cols + 9,
+            botMid: 6 * cols + 10,
+            botRight: 6 * cols + 11
+        };
+
+        // Level-based terrain selection
+        const levelTerrains = {
+            1: { primary: grass, secondary: brown, accent: stone },   // Summer: grass & brown
+            2: { primary: brown, secondary: brick, accent: stone },   // Autumn: brown & brick
+            3: { primary: cyan, secondary: purple, accent: stone }    // Winter: cyan & purple
+        };
+
+        const terrains = levelTerrains[this.currentLevel] || levelTerrains[1];
         this.tileStyles = {
-            grass: config.primary,
-            orange: config.secondary,
-            stone: config.accent
+            grass: terrains.primary,
+            orange: terrains.secondary,
+            stone: terrains.accent
         };
 
         // Track generated chunks (for cleanup)
@@ -225,28 +293,36 @@ class GameScene extends Phaser.Scene {
 
     generateChunk(startX) {
         // Generate a single chunk of terrain
-        const tileSize = 32;
+        const tileSize = this.tileSize;  // 32px (effective size after scaling)
+        const scale = this.tileScale || 2;
         const chunkTiles = [];
 
-        // Create ground for this chunk
+        // Create ground for this chunk using scaled tiles
         for (let x = startX; x < startX + this.chunkWidth; x += tileSize) {
             const style = this.tileStyles.grass;
 
-            // Top layer
+            // Top layer - ground surface
             const topTile = this.platforms.create(x, this.groundY, this.currentTileset, style.topMid);
             topTile.setOrigin(0, 0);
-            topTile.refreshBody();
+            topTile.setScale(scale);
+            topTile.body.setSize(tileSize, tileSize);
+            topTile.body.setOffset(0, 0);
             chunkTiles.push(topTile);
 
-            // Fill layers
+            // Fill layer 1
             const fillTile = this.platforms.create(x, this.groundY + tileSize, this.currentTileset, style.midMid);
             fillTile.setOrigin(0, 0);
-            fillTile.refreshBody();
+            fillTile.setScale(scale);
+            fillTile.body.setSize(tileSize, tileSize);
+            fillTile.body.setOffset(0, 0);
             chunkTiles.push(fillTile);
 
+            // Fill layer 2
             const fill2Tile = this.platforms.create(x, this.groundY + tileSize * 2, this.currentTileset, style.midMid);
             fill2Tile.setOrigin(0, 0);
-            fill2Tile.refreshBody();
+            fill2Tile.setScale(scale);
+            fill2Tile.body.setSize(tileSize, tileSize);
+            fill2Tile.body.setOffset(0, 0);
             chunkTiles.push(fill2Tile);
         }
 
@@ -556,7 +632,9 @@ class GameScene extends Phaser.Scene {
     }
 
     createTilesetPlatform(x, y, widthInTiles, heightInTiles, style = 'grass', chunkTiles = []) {
-        const tileSize = 32;
+        // Use scaled tile size (16px base * 2 scale = 32px visual)
+        const tileSize = this.tileSize;  // 32px (effective size after scaling)
+        const scale = this.tileScale || 2;
 
         // Get tile indices from level-specific tileStyles
         const tileStyle = this.tileStyles[style] || this.tileStyles.grass;
@@ -577,7 +655,10 @@ class GameScene extends Phaser.Scene {
 
             const tile = this.platforms.create(x + (i * tileSize), y, this.currentTileset, tileFrame);
             tile.setOrigin(0, 0);
-            tile.refreshBody();
+            tile.setScale(scale);  // Scale 16x16 to 32x32
+            // Refresh body to match scaled size
+            tile.body.setSize(tileSize, tileSize);
+            tile.body.setOffset(0, 0);
             chunkTiles.push(tile);
         }
 
@@ -597,7 +678,10 @@ class GameScene extends Phaser.Scene {
 
                 const tile = this.platforms.create(x + (i * tileSize), y + (row * tileSize), this.currentTileset, tileFrame);
                 tile.setOrigin(0, 0);
-                tile.refreshBody();
+                tile.setScale(scale);  // Scale 16x16 to 32x32
+                // Refresh body to match scaled size
+                tile.body.setSize(tileSize, tileSize);
+                tile.body.setOffset(0, 0);
                 chunkTiles.push(tile);
             }
         }
