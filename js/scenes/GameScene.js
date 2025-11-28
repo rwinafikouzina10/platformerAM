@@ -172,20 +172,16 @@ class GameScene extends Phaser.Scene {
         this.player.body.setSize(40, 55);
         this.player.body.setOffset(12, 9);
 
-        // Start idle animation
-        this.player.play('player_idle_anim');
+        // Start with run animation (it's an endless runner!)
+        this.player.play('player_run_anim');
 
         // Add player to ground collision
         this.physics.add.collider(this.player, this.ground, () => {
             if (!this.isOnGround) {
                 this.isOnGround = true;
                 this.canJump = true;
-                // Switch to run animation when on ground and moving
-                if (this.player.body.velocity.x !== 0) {
-                    this.player.play('player_run_anim', true);
-                } else {
-                    this.player.play('player_idle_anim', true);
-                }
+                // Always run animation when landing (endless runner)
+                this.player.play('player_run_anim', true);
             }
         });
 
@@ -796,7 +792,7 @@ class GameScene extends Phaser.Scene {
             repeat: 5,
             onComplete: () => {
                 if (!this.isGameOver) {
-                    player.play('player_idle_anim', true);
+                    player.play('player_run_anim', true);
                 }
             }
         });
@@ -1045,11 +1041,12 @@ class GameScene extends Phaser.Scene {
                 this.player.play('player_run_anim', true);
             }
         } else {
-            // Slight forward drift in endless runner
+            // Auto-run forward in endless runner
             this.player.setVelocityX(50);
             this.player.setFlipX(false);
-            if (this.isOnGround && this.player.anims.currentAnim?.key !== 'player_idle_anim') {
-                this.player.play('player_idle_anim', true);
+            // Always show run animation when on ground (it's an endless runner!)
+            if (this.isOnGround && this.player.anims.currentAnim?.key !== 'player_run_anim') {
+                this.player.play('player_run_anim', true);
             }
         }
 
