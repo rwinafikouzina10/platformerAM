@@ -32,13 +32,17 @@ class GameScene extends Phaser.Scene {
         this.groundY = this.levelHeight - 64;
 
         // Player physics settings (balanced for platformer)
-        this.playerSpeed = 300;
-        this.jumpForce = -500;
-        this.gravity = 1200;
+        this.playerSpeed = 320;
+        this.jumpForce = -620;
+        this.gravity = 900;
 
         // Player state
         this.canJump = true;
         this.isOnGround = true;
+
+        // Sound debounce
+        this.lastSoundTime = 0;
+        this.soundCooldown = 1500; // ms between sounds
     }
 
     create() {
@@ -138,46 +142,45 @@ class GameScene extends Phaser.Scene {
     }
 
     generatePlatforms() {
-        // Platform generation parameters
+        // Platform generation parameters - tuned for jump physics
+        // With jumpForce: -620, gravity: 900, speed: 320
         const minPlatformWidth = 3; // tiles
         const maxPlatformWidth = 6;
-        const maxJumpHeight = 150; // pixels - what player can reach
-        const maxJumpDistance = 250; // horizontal jump distance
-        const minVerticalGap = 100;
+        const maxJumpHeight = 120; // conservative - player can reach ~200px
+        const maxJumpDistance = 200; // conservative - player can reach ~300px
 
         // Store platforms for letter placement
         this.platformPositions = [];
 
-        // Starting position for first platform
-        let currentX = 400;
-        let currentY = this.groundY - 150;
+        // Starting position for first platform (easy to reach from ground)
+        let currentX = 350;
 
         // Generate platforms ensuring reachability
-        const numPlatforms = Math.floor(this.levelWidth / 300);
+        const numPlatforms = Math.floor(this.levelWidth / 350);
 
         for (let i = 0; i < numPlatforms; i++) {
             // Platform width in tiles
             const platformWidth = Phaser.Math.Between(minPlatformWidth, maxPlatformWidth);
             const platformPixelWidth = platformWidth * this.tileSize;
 
-            // Ensure Y is within reachable bounds
-            // Platforms should be between 100 and 350 pixels above ground
-            const minY = this.groundY - 350;
-            const maxY = this.groundY - 100;
+            // Platforms at comfortable jumping height (not too high, not too low)
+            // Between 120 and 250 pixels above ground
+            const minY = this.groundY - 250;
+            const maxY = this.groundY - 120;
 
-            // Calculate new Y position (ensure it's reachable from previous platform or ground)
+            // Calculate Y position - gentle variation
             let newY;
             if (i === 0) {
-                newY = this.groundY - 150;
+                newY = this.groundY - 140; // First platform easy to reach
             } else {
-                // New platform should be within jump range of previous
+                // New platform within easy jump range of previous
                 const prevPlatform = this.platformPositions[i - 1];
-                const yVariation = Phaser.Math.Between(-maxJumpHeight, maxJumpHeight);
+                const yVariation = Phaser.Math.Between(-80, 80);
                 newY = Phaser.Math.Clamp(prevPlatform.y + yVariation, minY, maxY);
             }
 
-            // Ensure X spacing allows jumping between platforms
-            const xSpacing = Phaser.Math.Between(150, maxJumpDistance);
+            // X spacing - always reachable
+            const xSpacing = Phaser.Math.Between(120, maxJumpDistance);
             currentX += xSpacing;
 
             // Don't exceed level width
@@ -213,34 +216,32 @@ class GameScene extends Phaser.Scene {
     }
 
     placeLetters() {
-        // Get letters to place based on current target
-        const letters = window.GameData.letters;
-
-        // Determine how many letter boxes to place
-        // 3 letters per set: 1 correct, 2 wrong
-        const numSets = Math.min(this.platformPositions.length, 5);
+        // Place letters on platforms only (not on ground to avoid blocking)
+        const numLetters = Math.min(this.platformPositions.length, 8);
 
         // Shuffle platform positions
         const shuffledPlatforms = Phaser.Utils.Array.Shuffle([...this.platformPositions]);
 
-        // Place letter sets on platforms
-        for (let i = 0; i < numSets; i++) {
+        // Place letter boxes above platforms
+        for (let i = 0; i < numLetters; i++) {
             const platform = shuffledPlatforms[i];
             if (!platform) continue;
 
-            // Place the letter box above the platform
+            // Place the letter box above the platform (reachable by jumping)
             const letterY = platform.y - 60;
 
-            // We'll populate the actual letters when selectNewTarget is called
-            // For now, create placeholder positions
             this.createLetterBox(platform.x, letterY, null, false, true);
         }
 
-        // Also place some letters on the ground path
-        for (let x = 600; x < this.levelWidth - 400; x += 400) {
-            const groundLetterY = this.groundY - 60;
-            this.createLetterBox(x, groundLetterY, null, false, true);
-        }
+        // Place a few floating letters high above ground (player jumps to collect)
+        const floatingPositions = [500, 1000, 1500, 2000, 2500];
+        floatingPositions.forEach(x => {
+            if (x < this.levelWidth - 200) {
+                // High enough that player must jump, but reachable
+                const floatY = this.groundY - 180;
+                this.createLetterBox(x, floatY, null, false, true);
+            }
+        });
     }
 
     createLetterBox(x, y, letter, isCorrect, isPlaceholder = false) {
@@ -640,6 +641,12 @@ class GameScene extends Phaser.Scene {
 
     onCollectLetter(player, letterObj) {
         if (!letterObj.active || letterObj.collected) return;
+
+        // Check sound cooldown to prevent rapid repetition
+        const now = this.time.now;
+        if (now - this.lastSoundTime < this.soundCooldown) return;
+        this.lastSoundTime = now;
+
         letterObj.collected = true;
 
         if (letterObj.isCorrect) {
@@ -679,15 +686,19 @@ class GameScene extends Phaser.Scene {
                 repeat: 3
             });
 
-            // Speak correct letter again
-            this.time.delayedCall(800, () => {
+            // Speak correct letter again after delay
+            this.time.delayedCall(1000, () => {
                 if (window.AudioSynth && this.currentTarget) {
                     window.AudioSynth.speakLetter(this.currentTarget.sound, this);
                 }
             });
 
-            // Reset collected flag so player can try again
-            letterObj.collected = false;
+            // Reset collected flag after cooldown so player can try again
+            this.time.delayedCall(this.soundCooldown, () => {
+                if (letterObj.active) {
+                    letterObj.collected = false;
+                }
+            });
         }
     }
 
