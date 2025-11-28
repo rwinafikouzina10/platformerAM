@@ -487,8 +487,9 @@ class BootScene extends Phaser.Scene {
         inputElement.type = 'text';
         inputElement.placeholder = 'Voer je naam in...';
         inputElement.maxLength = 20;
+        inputElement.id = 'playerNameInput';
         inputElement.style.cssText = `
-            position: absolute;
+            position: fixed;
             width: 300px;
             padding: 15px 20px;
             font-size: 24px;
@@ -499,13 +500,11 @@ class BootScene extends Phaser.Scene {
             background: #2c1810;
             color: #ffffff;
             outline: none;
+            z-index: 9999;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, 0);
         `;
-
-        // Position the input centered on the game canvas
-        const canvas = this.game.canvas;
-        const rect = canvas.getBoundingClientRect();
-        inputElement.style.left = `${rect.left + (rect.width / 2) - 150}px`;
-        inputElement.style.top = `${rect.top + (rect.height / 2) + 100}px`;
 
         document.body.appendChild(inputElement);
         this.nameInput = inputElement;
