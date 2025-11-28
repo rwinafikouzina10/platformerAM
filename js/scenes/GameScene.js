@@ -439,28 +439,8 @@ class GameScene extends Phaser.Scene {
     }
 
     addDecorations() {
-        // Add decorative elements - level-specific
-        // These don't have collision - purely visual
-
-        // Level-specific decoration frames
-        const decorConfig = {
-            1: { frames: [42, 43, 44, 45, 46, 47, 48], tileset: 'tileset_summer' },
-            2: { frames: [30, 31, 32, 33, 34], tileset: 'tileset_autumn' },
-            3: { frames: [56, 57, 58, 59, 60], tileset: 'tileset_winter' }
-        };
-
-        const config = decorConfig[this.currentLevel] || decorConfig[1];
-
-        // Add some background decorations at random positions
-        for (let x = 200; x < this.levelWidth - 200; x += Phaser.Math.Between(200, 400)) {
-            const decorY = this.groundY - 16;
-            const decorFrame = config.frames[Phaser.Math.Between(0, config.frames.length - 1)];
-
-            const decor = this.add.image(x, decorY, config.tileset, decorFrame);
-            decor.setOrigin(0.5, 1);
-            decor.setDepth(5);
-            this.decorations.add(decor);
-        }
+        // Decorations disabled - the tileset frames were showing as confusing blocks
+        // Future: Add proper decoration sprites (flowers, grass tufts, etc.)
     }
 
     createLetterBox(x, y, letter, isCorrect, isPlaceholder = false) {
