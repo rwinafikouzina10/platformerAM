@@ -1,6 +1,6 @@
 /**
  * GameScene - Main gameplay scene
- * Endless runner with Arabic letter learning mechanics
+ * 2D Platformer with Arabic letter learning mechanics
  */
 class GameScene extends Phaser.Scene {
     constructor() {
@@ -11,59 +11,49 @@ class GameScene extends Phaser.Scene {
         // Game state
         this.score = 0;
         this.lives = 3;
-
-        // Get difficulty settings
-        const difficulty = window.GameData.currentDifficulty || 'slow';
-        const diffSettings = window.GameData.difficulties[difficulty];
-        this.gameSpeed = diffSettings.speed;
-        this.maxGameSpeed = diffSettings.maxSpeed;
-
         this.isGameOver = false;
         this.isPaused = false;
-
-        // Letter learning state
-        this.currentTarget = null;
-        this.targetLetter = null;
-        this.consecutiveCorrect = 0;
-        this.correctCollections = 0; // Track how many times correct letter collected
-        this.requiredCollections = 1; // Only need 1 correct to advance to next letter
 
         // Level system
         this.currentLevel = window.GameData.currentLevel || 1;
         this.levelLetters = this.getLettersForLevel(this.currentLevel);
         this.completedLettersInLevel = [];
-        this.currentLetterIndex = 0;
 
-        // Spawning timers
-        this.lastObstacleTime = 0;
-        this.lastPlatformTime = 0;
-        this.obstacleInterval = 3000;
-        this.platformInterval = 2500;
+        // Current target letter
+        this.currentTarget = null;
+        this.targetLetter = null;
 
-        // Ground level
-        this.groundY = 620;
+        // Level dimensions (will be set during generation)
+        this.levelWidth = 3000;
+        this.levelHeight = 720;
+
+        // Platform generation settings
+        this.tileSize = 32;
+        this.groundY = this.levelHeight - 64;
+
+        // Player physics settings (balanced for platformer)
+        this.playerSpeed = 300;
+        this.jumpForce = -500;
+        this.gravity = 1200;
 
         // Player state
         this.canJump = true;
         this.isOnGround = true;
-
-        // Available fruit types for collectibles
-        this.fruitTypes = ['apple', 'banana', 'cherry', 'orange', 'melon', 'kiwi', 'strawberry'];
     }
 
     create() {
-        // Set world bounds
-        this.physics.world.setBounds(0, 0, 1280, 720);
+        // Set world bounds for the level
+        this.physics.world.setBounds(0, 0, this.levelWidth, this.levelHeight);
 
-        // Create game layers
+        // Create game layers in order
         this.createBackground();
-        this.createGround();
+        this.createLevel();
         this.createPlayer();
         this.createUI();
         this.createControls();
 
-        // Create object groups
-        this.createObjectGroups();
+        // Setup camera to follow player
+        this.setupCamera();
 
         // Start the game
         this.startGame();
@@ -73,193 +63,391 @@ class GameScene extends Phaser.Scene {
     }
 
     createBackground() {
-        // Create beautiful multi-layer parallax scrolling background
-        // Each layer scrolls at different speed for depth effect
+        // Sky color based on level
+        const skyColors = [0x87CEEB, 0xE8D4B8, 0xFFB366];
+        const skyColor = skyColors[(this.currentLevel - 1) % skyColors.length];
 
-        // Sky gradient background (static base)
-        const skyColor = this.currentLevel === 2 ? 0x87CEEB :
-                        this.currentLevel === 3 ? 0xE8D4B8 : 0xF5DEB3;
-        this.add.rectangle(640, 360, 1280, 720, skyColor);
+        // Create sky that fills the level
+        this.add.rectangle(this.levelWidth / 2, this.levelHeight / 2, this.levelWidth, this.levelHeight, skyColor);
 
-        // Parallax layers array - ordered from back to front
-        // Each layer has: key, yPosition, scrollSpeed (slower = further)
+        // Parallax background layers (will scroll with camera)
         this.parallaxLayers = [];
 
-        // Mountains (furthest back, slowest scroll)
-        const mountains = this.add.tileSprite(640, 360, 1280, 720, 'parallax_mountains');
-        mountains.setScrollFactor(0);
-        mountains.scrollSpeed = 0.02; // Very slow - distant
-        this.parallaxLayers.push(mountains);
-
-        // Far rocky terrain
-        const far = this.add.tileSprite(640, 360, 1280, 720, 'parallax_far');
-        far.setScrollFactor(0);
-        far.scrollSpeed = 0.05; // Slow
-        this.parallaxLayers.push(far);
-
-        // Mid rocky terrain
-        const mid = this.add.tileSprite(640, 360, 1280, 720, 'parallax_mid');
-        mid.setScrollFactor(0);
-        mid.scrollSpeed = 0.08; // Medium
-        this.parallaxLayers.push(mid);
-
-        // Close rocky terrain (closest, fastest scroll)
-        const close = this.add.tileSprite(640, 360, 1280, 720, 'parallax_close');
-        close.setScrollFactor(0);
-        close.scrollSpeed = 0.12; // Faster - closer
-        this.parallaxLayers.push(close);
-
-        // Apply color tint based on level for variety
-        if (this.currentLevel === 2) {
-            // Cooler blue-ish tint for level 2
-            this.parallaxLayers.forEach(layer => layer.setTint(0xC4D4E0));
-        } else if (this.currentLevel === 3) {
-            // Warmer sunset tint for level 3
-            this.parallaxLayers.forEach(layer => layer.setTint(0xFFD4A0));
+        // Mountains (furthest back)
+        for (let x = 0; x < this.levelWidth + 1280; x += 1280) {
+            const mountains = this.add.image(x, this.levelHeight / 2, 'parallax_mountains');
+            mountains.setScrollFactor(0.2);
+            this.parallaxLayers.push(mountains);
         }
 
-        // Keep bg reference for compatibility (points to closest layer)
-        this.bg = close;
+        // Far terrain
+        for (let x = 0; x < this.levelWidth + 1280; x += 1280) {
+            const far = this.add.image(x, this.levelHeight / 2, 'parallax_far');
+            far.setScrollFactor(0.4);
+            this.parallaxLayers.push(far);
+        }
 
-        // Add decorative elements (palm trees, oasis)
-        this.decorations = this.add.group();
+        // Mid terrain
+        for (let x = 0; x < this.levelWidth + 1280; x += 1280) {
+            const mid = this.add.image(x, this.levelHeight / 2, 'parallax_mid');
+            mid.setScrollFactor(0.6);
+            this.parallaxLayers.push(mid);
+        }
 
-        // Initial decorations
-        this.addDecoration(200, this.groundY - 80, 'palm_tree', 0.8);
-        this.addDecoration(800, this.groundY - 80, 'palm_tree', 0.6);
-        this.addDecoration(1100, this.groundY - 30, 'oasis', 0.7);
+        // Apply tint based on level
+        const tints = [null, 0xC4D4E0, 0xFFD4A0];
+        if (tints[this.currentLevel - 1]) {
+            this.parallaxLayers.forEach(layer => layer.setTint(tints[this.currentLevel - 1]));
+        }
     }
 
-    addDecoration(x, y, key, scale = 1) {
-        const deco = this.add.image(x, y, key).setScale(scale).setOrigin(0.5, 1);
-        deco.setDepth(-1);
-        this.decorations.add(deco);
-        return deco;
+    createLevel() {
+        // Create physics groups
+        this.platforms = this.physics.add.staticGroup();
+        this.letterBoxes = this.physics.add.group({ allowGravity: false });
+
+        // Generate the level procedurally
+        this.generateLevel();
+    }
+
+    generateLevel() {
+        // Create ground along the entire level
+        this.createGround();
+
+        // Generate platforms with guaranteed reachability
+        this.generatePlatforms();
+
+        // Place letters on platforms
+        this.placeLetters();
     }
 
     createGround() {
-        // Ground group (static physics bodies)
-        this.ground = this.physics.add.staticGroup();
-
-        // Create ground tiles using Kenney sand tiles
+        // Create ground tiles across the level width
         const tileWidth = 70;
-        for (let x = 0; x < 1400; x += tileWidth) {
-            let tileKey = 'sand_mid';
-            if (x === 0) {
-                tileKey = 'sand_left';
-            }
-
+        for (let x = 0; x < this.levelWidth; x += tileWidth) {
             // Top layer
-            const topTile = this.ground.create(x, this.groundY, tileKey);
+            const topTile = this.platforms.create(x, this.groundY, 'sand_mid');
             topTile.setOrigin(0, 0);
             topTile.refreshBody();
 
-            // Fill below with center tiles
-            const fillTile = this.ground.create(x, this.groundY + 70, 'sand_center');
+            // Fill below
+            const fillTile = this.platforms.create(x, this.groundY + 70, 'sand_center');
             fillTile.setOrigin(0, 0);
             fillTile.refreshBody();
         }
     }
 
+    generatePlatforms() {
+        // Platform generation parameters
+        const minPlatformWidth = 3; // tiles
+        const maxPlatformWidth = 6;
+        const maxJumpHeight = 150; // pixels - what player can reach
+        const maxJumpDistance = 250; // horizontal jump distance
+        const minVerticalGap = 100;
+
+        // Store platforms for letter placement
+        this.platformPositions = [];
+
+        // Starting position for first platform
+        let currentX = 400;
+        let currentY = this.groundY - 150;
+
+        // Generate platforms ensuring reachability
+        const numPlatforms = Math.floor(this.levelWidth / 300);
+
+        for (let i = 0; i < numPlatforms; i++) {
+            // Platform width in tiles
+            const platformWidth = Phaser.Math.Between(minPlatformWidth, maxPlatformWidth);
+            const platformPixelWidth = platformWidth * this.tileSize;
+
+            // Ensure Y is within reachable bounds
+            // Platforms should be between 100 and 350 pixels above ground
+            const minY = this.groundY - 350;
+            const maxY = this.groundY - 100;
+
+            // Calculate new Y position (ensure it's reachable from previous platform or ground)
+            let newY;
+            if (i === 0) {
+                newY = this.groundY - 150;
+            } else {
+                // New platform should be within jump range of previous
+                const prevPlatform = this.platformPositions[i - 1];
+                const yVariation = Phaser.Math.Between(-maxJumpHeight, maxJumpHeight);
+                newY = Phaser.Math.Clamp(prevPlatform.y + yVariation, minY, maxY);
+            }
+
+            // Ensure X spacing allows jumping between platforms
+            const xSpacing = Phaser.Math.Between(150, maxJumpDistance);
+            currentX += xSpacing;
+
+            // Don't exceed level width
+            if (currentX + platformPixelWidth > this.levelWidth - 200) break;
+
+            // Create the platform
+            this.createPlatform(currentX, newY, platformWidth);
+
+            // Store position for letter placement
+            this.platformPositions.push({
+                x: currentX + platformPixelWidth / 2,
+                y: newY,
+                width: platformPixelWidth
+            });
+
+            currentX += platformPixelWidth;
+        }
+    }
+
+    createPlatform(x, y, widthInTiles) {
+        // Create a platform using tiles
+        for (let i = 0; i < widthInTiles; i++) {
+            let tileKey = 'sand_mid';
+            if (i === 0) tileKey = 'sand_left';
+            if (i === widthInTiles - 1) tileKey = 'sand_right';
+            if (widthInTiles === 1) tileKey = 'sand_mid';
+
+            const tile = this.platforms.create(x + (i * this.tileSize), y, tileKey);
+            tile.setOrigin(0, 0);
+            tile.setScale(0.5); // Scale down 70px tiles to 35px
+            tile.refreshBody();
+        }
+    }
+
+    placeLetters() {
+        // Get letters to place based on current target
+        const letters = window.GameData.letters;
+
+        // Determine how many letter boxes to place
+        // 3 letters per set: 1 correct, 2 wrong
+        const numSets = Math.min(this.platformPositions.length, 5);
+
+        // Shuffle platform positions
+        const shuffledPlatforms = Phaser.Utils.Array.Shuffle([...this.platformPositions]);
+
+        // Place letter sets on platforms
+        for (let i = 0; i < numSets; i++) {
+            const platform = shuffledPlatforms[i];
+            if (!platform) continue;
+
+            // Place the letter box above the platform
+            const letterY = platform.y - 60;
+
+            // We'll populate the actual letters when selectNewTarget is called
+            // For now, create placeholder positions
+            this.createLetterBox(platform.x, letterY, null, false, true);
+        }
+
+        // Also place some letters on the ground path
+        for (let x = 600; x < this.levelWidth - 400; x += 400) {
+            const groundLetterY = this.groundY - 60;
+            this.createLetterBox(x, groundLetterY, null, false, true);
+        }
+    }
+
+    createLetterBox(x, y, letter, isCorrect, isPlaceholder = false) {
+        // Create container for letter box
+        const boxWidth = 80;
+        const boxHeight = 80;
+
+        // Background box
+        const bg = this.add.image(x, y, 'gui_box_orange');
+        bg.setDisplaySize(boxWidth, boxHeight);
+        bg.setDepth(10);
+
+        // Letter text (empty if placeholder)
+        const displayLetter = isPlaceholder ? '?' : letter;
+        const letterText = this.add.text(x, y, displayLetter, {
+            fontFamily: 'Noto Sans Arabic, Arial',
+            fontSize: '44px',
+            color: '#2c1810',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(11);
+
+        // Physics body for collision
+        const hitbox = this.letterBoxes.create(x, y, null);
+        hitbox.setVisible(false);
+        hitbox.body.setSize(boxWidth, boxHeight);
+        hitbox.body.setAllowGravity(false);
+        hitbox.body.setImmovable(true);
+
+        // Store references
+        hitbox.letterBg = bg;
+        hitbox.letterText = letterText;
+        hitbox.letter = letter;
+        hitbox.isCorrect = isCorrect;
+        hitbox.isPlaceholder = isPlaceholder;
+        hitbox.collected = false;
+
+        // Bobbing animation
+        this.tweens.add({
+            targets: [bg, letterText],
+            y: y - 8,
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+
+        return hitbox;
+    }
+
+    updateLetterBoxes() {
+        // Update all letter boxes with current target
+        if (!this.currentTarget) return;
+
+        const letters = window.GameData.letters;
+        const letterBoxes = this.letterBoxes.getChildren().filter(box => !box.collected);
+
+        // Shuffle to randomize which box gets the correct letter
+        Phaser.Utils.Array.Shuffle(letterBoxes);
+
+        // Assign one correct letter, rest are wrong
+        let correctAssigned = false;
+
+        letterBoxes.forEach(box => {
+            if (box.collected) return;
+
+            let letter, isCorrect;
+
+            if (!correctAssigned) {
+                // Assign correct letter
+                const targetForms = this.currentTarget.forms || [this.currentTarget.char];
+                letter = this.currentLevel === 1 ? targetForms[0] :
+                    targetForms[Phaser.Math.Between(0, targetForms.length - 1)];
+                isCorrect = true;
+                correctAssigned = true;
+            } else {
+                // Assign wrong letter
+                let wrongLetterData;
+                do {
+                    wrongLetterData = letters[Phaser.Math.Between(0, letters.length - 1)];
+                } while (wrongLetterData.char === this.currentTarget.char);
+
+                const wrongForms = wrongLetterData.forms || [wrongLetterData.char];
+                letter = this.currentLevel === 1 ? wrongForms[0] :
+                    wrongForms[Phaser.Math.Between(0, wrongForms.length - 1)];
+                isCorrect = false;
+            }
+
+            // Update the box
+            box.letter = letter;
+            box.isCorrect = isCorrect;
+            box.isPlaceholder = false;
+            box.letterText.setText(letter);
+        });
+    }
+
     createPlayer() {
-        // Create player sprite with Arabian Adventurer (64x64 px)
-        this.player = this.physics.add.sprite(200, this.groundY - 50, 'player_idle');
-        this.player.setScale(1.4); // Scale up the 64x64 sprite for visibility
+        // Create player at start position
+        const startX = 150;
+        const startY = this.groundY - 100;
+
+        this.player = this.physics.add.sprite(startX, startY, 'player_idle');
+        this.player.setScale(1.4);
         this.player.setBounce(0.1);
         this.player.setCollideWorldBounds(true);
 
-        // Adjust hitbox for the 64x64 character sprite (scaled)
+        // Set custom gravity for player
+        this.player.body.setGravityY(this.gravity - 800); // Add to world gravity
+
+        // Adjust hitbox
         this.player.body.setSize(40, 55);
         this.player.body.setOffset(12, 9);
 
-        // Start with run animation (it's an endless runner!)
-        this.player.play('player_run_anim');
+        // Start with idle animation
+        this.player.play('player_idle_anim');
 
-        // Add player to ground collision
-        this.physics.add.collider(this.player, this.ground, () => {
-            if (!this.isOnGround) {
-                this.isOnGround = true;
-                this.canJump = true;
-                // Always run animation when landing (endless runner)
-                this.player.play('player_run_anim', true);
-            }
-        });
+        // Collisions
+        this.physics.add.collider(this.player, this.platforms, this.onPlatformLand, null, this);
+        this.physics.add.overlap(this.player, this.letterBoxes, this.onCollectLetter, null, this);
+    }
 
-        // Dust particles when running
-        this.playerDust = this.add.particles(0, 0, 'sand_center', {
-            speed: { min: 10, max: 30 },
-            scale: { start: 0.1, end: 0 },
-            alpha: { start: 0.4, end: 0 },
-            lifespan: 200,
-            frequency: 150,
-            quantity: 1,
-            tint: 0xf4d03f
-        });
-        this.playerDust.startFollow(this.player, 0, 20);
+    setupCamera() {
+        // Set camera bounds to level size
+        this.cameras.main.setBounds(0, 0, this.levelWidth, this.levelHeight);
+
+        // Follow player with some deadzone for smoother scrolling
+        this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+        this.cameras.main.setDeadzone(200, 100);
+
+        // Keep some look-ahead in the direction player is moving
+        this.cameras.main.setFollowOffset(-100, 0);
     }
 
     createUI() {
-        // Menu button - top left corner
-        this.menuBtn = this.add.image(35, 35, 'gui_btn_menu');
-        this.menuBtn.setDisplaySize(45, 45);
-        this.menuBtn.setInteractive({ useHandCursor: true });
-        this.menuBtn.on('pointerdown', () => {
-            this.returnToMenu();
-        });
-        this.menuBtn.on('pointerover', () => this.menuBtn.setTint(0xcccccc));
-        this.menuBtn.on('pointerout', () => this.menuBtn.clearTint());
+        // Create UI container that stays fixed on screen
+        this.uiContainer = this.add.container(0, 0);
+        this.uiContainer.setScrollFactor(0);
+        this.uiContainer.setDepth(100);
 
-        // Score panel (after menu button)
-        this.add.image(160, 35, 'score_panel');
+        // Menu button - top left
+        const menuBtn = this.add.image(35, 35, 'gui_btn_menu');
+        menuBtn.setDisplaySize(45, 45);
+        menuBtn.setInteractive({ useHandCursor: true });
+        menuBtn.on('pointerdown', () => this.returnToMenu());
+        menuBtn.on('pointerover', () => menuBtn.setTint(0xcccccc));
+        menuBtn.on('pointerout', () => menuBtn.clearTint());
+        this.uiContainer.add(menuBtn);
 
-        // Fruit icon for score
+        // Score
+        const scorePanel = this.add.image(160, 35, 'score_panel');
+        this.uiContainer.add(scorePanel);
+
         const scoreIcon = this.add.sprite(85, 35, 'apple').setScale(1);
         scoreIcon.play('apple_anim');
+        this.uiContainer.add(scoreIcon);
 
-        // Score text
         this.scoreText = this.add.text(115, 35, '0', {
             fontFamily: 'Arial',
             fontSize: '28px',
             color: '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(0, 0.5);
+        this.uiContainer.add(this.scoreText);
 
-        // Lives (hearts) - top right using GUI assets (scaled down from 270x229)
+        // Lives (hearts)
         this.hearts = [];
         for (let i = 0; i < 3; i++) {
             const heart = this.add.image(1200 - (i * 40), 35, 'gui_heart_full');
             heart.setDisplaySize(32, 27);
             this.hearts.push(heart);
+            this.uiContainer.add(heart);
         }
 
-        // Progress indicator (top center) - shows collection progress
+        // Progress indicator
         this.progressText = this.add.text(640, 35, '', {
             fontFamily: 'Arial',
-            fontSize: '24px',
+            fontSize: '22px',
             color: '#f4d03f',
             fontStyle: 'bold'
         }).setOrigin(0.5);
+        this.uiContainer.add(this.progressText);
 
-        // "Listen again" button (Dutch: "Luister opnieuw")
-        this.listenAgainBtn = this.add.text(640, 75, '🔊 Luister opnieuw', {
-            fontFamily: 'Arial',
-            fontSize: '20px',
-            color: '#98D8E8',
+        // Target letter display (shows what to find)
+        this.targetDisplay = this.add.text(640, 80, '', {
+            fontFamily: 'Noto Sans Arabic, Arial',
+            fontSize: '36px',
+            color: '#ffffff',
             backgroundColor: '#00000088',
-            padding: { x: 15, y: 8 }
-        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-        this.listenAgainBtn.setVisible(false);
+            padding: { x: 20, y: 10 }
+        }).setOrigin(0.5);
+        this.uiContainer.add(this.targetDisplay);
 
+        // Listen again button
+        this.listenAgainBtn = this.add.text(640, 130, '🔊 Luister', {
+            fontFamily: 'Arial',
+            fontSize: '18px',
+            color: '#98D8E8',
+            backgroundColor: '#00000066',
+            padding: { x: 12, y: 6 }
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
         this.listenAgainBtn.on('pointerdown', () => {
             if (window.AudioSynth && this.currentTarget) {
                 window.AudioSynth.speakLetter(this.currentTarget.sound, this);
-                // Visual feedback
-                this.listenAgainBtn.setScale(0.9);
-                this.time.delayedCall(100, () => this.listenAgainBtn.setScale(1));
             }
         });
+        this.uiContainer.add(this.listenAgainBtn);
 
-        // Feedback text (center screen)
+        // Feedback text
         this.feedbackText = this.add.text(640, 300, '', {
             fontFamily: 'Noto Sans Arabic, Arial',
             fontSize: '48px',
@@ -268,114 +456,72 @@ class GameScene extends Phaser.Scene {
             stroke: '#000000',
             strokeThickness: 4
         }).setOrigin(0.5);
-        this.feedbackText.setDepth(100);
-
-        // High score (Dutch)
-        this.add.text(1270, 680, `Beste: ${window.GameData.highScore}`, {
-            fontFamily: 'Arial',
-            fontSize: '18px',
-            color: '#ffffff',
-            alpha: 0.7
-        }).setOrigin(1, 0.5);
+        this.uiContainer.add(this.feedbackText);
     }
 
     createControls() {
-        // Virtual Joystick (left side of screen)
+        // Virtual Joystick (left side)
         this.joystick = this.plugins.get('rexVirtualJoystick').add(this, {
             x: 120,
             y: 580,
             radius: 60,
-            base: this.add.image(0, 0, 'joystick_base').setAlpha(0.6),
-            thumb: this.add.image(0, 0, 'joystick_thumb').setAlpha(0.8),
+            base: this.add.image(0, 0, 'joystick_base').setAlpha(0.6).setScrollFactor(0).setDepth(100),
+            thumb: this.add.image(0, 0, 'joystick_thumb').setAlpha(0.8).setScrollFactor(0).setDepth(100),
             dir: 'left&right',
             enable: true
         });
 
-        // Jump button (right side of screen)
+        // Jump button (right side)
         this.jumpButton = this.add.image(1160, 580, 'jump_button')
             .setInteractive()
             .setAlpha(0.7)
-            .setScale(1.2);
+            .setScale(1.2)
+            .setScrollFactor(0)
+            .setDepth(100);
 
-        // Jump on button press
         this.jumpButton.on('pointerdown', () => {
             this.jump();
-            this.jumpButton.setScale(1.0);
-            this.jumpButton.setAlpha(0.9);
+            this.jumpButton.setScale(1.0).setAlpha(0.9);
         });
 
         this.jumpButton.on('pointerup', () => {
-            this.jumpButton.setScale(1.2);
-            this.jumpButton.setAlpha(0.7);
+            this.jumpButton.setScale(1.2).setAlpha(0.7);
         });
 
-        // Also allow tap on right half of screen to jump
+        // Keyboard controls
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+        // Touch jump on right side of screen
         this.input.on('pointerdown', (pointer) => {
-            if (pointer.x > 640 && pointer.y < 500) {
+            if (pointer.x > 800 && pointer.y < 450) {
                 this.jump();
             }
         });
-
-        // Keyboard controls (for desktop testing)
-        this.cursors = this.input.keyboard.createCursorKeys();
-        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    }
-
-    createObjectGroups() {
-        // Platforms group
-        this.platforms = this.physics.add.group({
-            allowGravity: false,
-            immovable: true
-        });
-
-        // Obstacles group
-        this.obstacles = this.physics.add.group({
-            allowGravity: false,
-            immovable: true
-        });
-
-        // Collectibles group
-        this.collectibles = this.physics.add.group({
-            allowGravity: false
-        });
-
-        // Floating letters group (like fruits)
-        this.floatingLetters = this.physics.add.group({
-            allowGravity: false
-        });
-
-        // Collisions
-        this.physics.add.collider(this.player, this.platforms, this.onPlatformLand, null, this);
-        this.physics.add.overlap(this.player, this.obstacles, this.onObstacleHit, null, this);
-        this.physics.add.overlap(this.player, this.collectibles, this.onCollectItem, null, this);
-        this.physics.add.overlap(this.player, this.floatingLetters, this.onCollectLetter, null, this);
     }
 
     startGame() {
         this.isGameOver = false;
         this.score = 0;
         this.lives = 3;
-        this.gameSpeed = 200;
         this.updateScore(0);
 
-        // Start background music (low volume so letters can be heard clearly)
+        // Start background music
         this.startBackgroundMusic();
 
-        // Start spawning letters after delay
-        this.time.delayedCall(1000, () => {
+        // Select first target letter
+        this.time.delayedCall(500, () => {
             this.selectNewTarget();
         });
     }
 
     startBackgroundMusic() {
-        // Pick a random music track
         const musicTracks = ['music1', 'music2', 'music3'];
         const randomTrack = musicTracks[Phaser.Math.Between(0, musicTracks.length - 1)];
 
-        // Check if music file exists before playing
         if (this.cache.audio.exists(randomTrack)) {
             this.bgMusic = this.sound.add(randomTrack, {
-                volume: 0.15, // Low volume so letter sounds are clear
+                volume: 0.15,
                 loop: true
             });
             this.bgMusic.play();
@@ -393,18 +539,18 @@ class GameScene extends Phaser.Scene {
         const letters = window.GameData.letters;
 
         if (level === 2) {
-            // Level 2: All letter forms (isolated, initial, medial, final)
+            // Level 2: All letter forms
             const allForms = [];
             const formNames = ['alleenstaand', 'begin', 'midden', 'eind'];
 
             letters.forEach(letter => {
-                // Get unique forms (some letters have duplicate forms)
                 const uniqueForms = [...new Set(letter.forms)];
-                uniqueForms.forEach((form, index) => {
+                uniqueForms.forEach((form) => {
                     allForms.push({
                         char: form,
                         name: `${letter.name} (${formNames[letter.forms.indexOf(form)]})`,
                         sound: letter.sound,
+                        forms: [form],
                         baseChar: letter.char
                     });
                 });
@@ -413,7 +559,7 @@ class GameScene extends Phaser.Scene {
         }
 
         if (level === 3) {
-            // Level 3: Letters with harakat (short vowels)
+            // Level 3: Letters with harakat
             const combinations = [];
             const harakat = window.GameData.harakat || [];
 
@@ -423,6 +569,7 @@ class GameScene extends Phaser.Scene {
                         char: letter.char + h.char,
                         name: `${letter.name} met ${h.name}`,
                         sound: `${letter.sound}_${h.sound === 'a' ? 'fatha' : h.sound === 'i' ? 'kasra' : 'damma'}`,
+                        forms: [letter.char + h.char],
                         baseChar: letter.char
                     });
                 });
@@ -430,487 +577,130 @@ class GameScene extends Phaser.Scene {
             return combinations;
         }
 
-        // Level 1: Just isolated letters (28 letters)
         return letters;
     }
 
     selectNewTarget() {
         if (this.isGameOver) return;
 
-        // Reset collection count for new letter
-        this.correctCollections = 0;
-
-        // Check if all letters in level are completed
+        // Check if level complete
         if (this.completedLettersInLevel.length >= this.levelLetters.length) {
             this.levelComplete();
             return;
         }
 
-        // Get all uncompleted letters and pick one randomly
+        // Get uncompleted letters
         const uncompletedLetters = this.levelLetters.filter(
             letter => !this.completedLettersInLevel.includes(letter.char)
         );
 
-        // Pick a random letter from uncompleted ones
-        let nextLetter = null;
-        if (uncompletedLetters.length > 0) {
-            const randomIndex = Phaser.Math.Between(0, uncompletedLetters.length - 1);
-            nextLetter = uncompletedLetters[randomIndex];
-            this.currentLetterIndex = this.levelLetters.indexOf(nextLetter);
-        }
-
-        if (!nextLetter) {
+        if (uncompletedLetters.length === 0) {
             this.levelComplete();
             return;
         }
 
-        this.currentTarget = nextLetter;
+        // Pick random letter
+        const randomIndex = Phaser.Math.Between(0, uncompletedLetters.length - 1);
+        this.currentTarget = uncompletedLetters[randomIndex];
         this.targetLetter = this.currentTarget.char;
 
-        // Update progress indicator (don't show the letter!)
+        // Update UI
         this.updateProgressDisplay();
-        this.listenAgainBtn.setVisible(true);
+        this.targetDisplay.setText(`Zoek: ${this.targetLetter}`);
 
-        // Speak the letter (audio only - no visual)
+        // Speak the letter
         if (window.AudioSynth) {
             window.AudioSynth.speakLetter(this.currentTarget.sound, this);
         }
 
-        // Show feedback in Dutch: "Listen carefully!" (no letter shown)
-        this.showFeedback('Luister goed!', '#f4d03f', 1500);
+        // Update letter boxes with new target
+        this.updateLetterBoxes();
 
-        // Start spawning floating letters
-        this.spawnFloatingLetters();
+        this.showFeedback('Luister goed!', '#f4d03f', 1500);
     }
 
     updateProgressDisplay() {
-        // Show progress: how many letters remaining
-        const completed = this.completedLettersInLevel.length;
-        const total = this.levelLetters.length;
-        const remaining = total - completed;
+        const remaining = this.levelLetters.length - this.completedLettersInLevel.length;
         this.progressText.setText(`Niveau ${this.currentLevel} | Nog ${remaining} te gaan`);
-    }
-
-    levelComplete() {
-        this.isGameOver = true;
-
-        // Stop background music
-        this.stopBackgroundMusic();
-
-        // Save progress
-        const unlockedLevel = parseInt(localStorage.getItem('farisUnlockedLevel') || '1');
-        if (this.currentLevel >= unlockedLevel && this.currentLevel < 3) {
-            localStorage.setItem('farisUnlockedLevel', (this.currentLevel + 1).toString());
-        }
-
-        // Save completed letters for this level
-        const completedLetters = JSON.parse(localStorage.getItem('farisCompletedLetters') || '{}');
-        completedLetters[this.currentLevel] = this.completedLettersInLevel;
-        localStorage.setItem('farisCompletedLetters', JSON.stringify(completedLetters));
-
-        // Show level complete screen
-        this.showLevelCompleteScreen();
-    }
-
-    showLevelCompleteScreen() {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-
-        // Darken background
-        const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8);
-        overlay.setDepth(90);
-
-        // Level complete text
-        this.add.text(width / 2, 180, 'Niveau Compleet!', {
-            fontFamily: 'Arial',
-            fontSize: '64px',
-            color: '#27ae60',
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(100);
-
-        // Arabic congratulations
-        this.add.text(width / 2, 250, 'أحسنت!', {
-            fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '48px',
-            color: '#f4d03f'
-        }).setOrigin(0.5).setDepth(100);
-
-        // Score
-        this.add.text(width / 2, 320, `Score: ${this.score}`, {
-            fontFamily: 'Arial',
-            fontSize: '36px',
-            color: '#ffffff'
-        }).setOrigin(0.5).setDepth(100);
-
-        // Letters learned
-        this.add.text(width / 2, 380, `Letters geleerd: ${this.completedLettersInLevel.length}`, {
-            fontFamily: 'Arial',
-            fontSize: '24px',
-            color: '#98D8E8'
-        }).setOrigin(0.5).setDepth(100);
-
-        // Next level button (if not level 3)
-        if (this.currentLevel < 3) {
-            const nextBtn = this.add.text(width / 2, 480, '▶ Volgende Niveau', {
-                fontFamily: 'Arial',
-                fontSize: '28px',
-                color: '#ffffff',
-                backgroundColor: '#27ae60',
-                padding: { x: 30, y: 15 }
-            }).setOrigin(0.5).setDepth(100).setInteractive({ useHandCursor: true });
-
-            nextBtn.on('pointerdown', () => {
-                window.GameData.currentLevel = this.currentLevel + 1;
-                this.scene.restart();
-            });
-
-            nextBtn.on('pointerover', () => nextBtn.setScale(1.1));
-            nextBtn.on('pointerout', () => nextBtn.setScale(1));
-        }
-
-        // Back to menu button
-        const menuBtn = this.add.text(width / 2, 560, '← Terug naar Menu', {
-            fontFamily: 'Arial',
-            fontSize: '24px',
-            color: '#ffffff',
-            backgroundColor: '#3498db',
-            padding: { x: 25, y: 12 }
-        }).setOrigin(0.5).setDepth(100).setInteractive({ useHandCursor: true });
-
-        menuBtn.on('pointerdown', () => {
-            this.scene.start('MenuScene');
-        });
-
-        menuBtn.on('pointerover', () => menuBtn.setScale(1.1));
-        menuBtn.on('pointerout', () => menuBtn.setScale(1));
-    }
-
-    spawnFloatingLetters() {
-        if (this.isGameOver || !this.currentTarget) return;
-
-        const letters = window.GameData.letters;
-        const baseX = 1400;
-
-        // Spawn 3 letters with wide horizontal spacing (one correct, two wrong)
-        const numLetters = 3;
-        const spacing = 250; // 250px spacing between each letter
-        const positions = [];
-
-        // Generate positions - spread out horizontally, reachable height
-        // 220-280px above ground - high enough to require jumping, won't hit standing player
-        for (let i = 0; i < numLetters; i++) {
-            positions.push({
-                x: baseX + (i * spacing),
-                y: this.groundY - Phaser.Math.Between(220, 280)
-            });
-        }
-
-        // Shuffle positions so correct letter position is random
-        Phaser.Utils.Array.Shuffle(positions);
-
-        // Get letter form based on level
-        // Level 1: only isolated form (index 0)
-        // Level 2+: all forms (isolated, initial, medial, final)
-        let randomForm;
-        const targetForms = this.currentTarget.forms || [this.targetLetter];
-        if (this.currentLevel === 1) {
-            // Level 1: only isolated form
-            randomForm = targetForms[0];
-        } else {
-            // Level 2+: random form to teach all appearances
-            randomForm = targetForms[Phaser.Math.Between(0, targetForms.length - 1)];
-        }
-
-        // Place correct letter (random form) at first shuffled position
-        this.createFloatingLetter(positions[0].x, positions[0].y, randomForm, true);
-
-        // Place wrong letters at remaining positions (use isolated form for clarity)
-        for (let i = 1; i < positions.length; i++) {
-            let wrongLetter;
-            let wrongLetterData;
-            do {
-                const wrongIndex = Phaser.Math.Between(0, Math.min(letters.length - 1, 7));
-                wrongLetterData = letters[wrongIndex];
-                wrongLetter = wrongLetterData.char;
-            } while (wrongLetter === this.currentTarget.char);
-
-            // Use form based on level
-            const wrongForms = wrongLetterData.forms || [wrongLetter];
-            let wrongForm;
-            if (this.currentLevel === 1) {
-                wrongForm = wrongForms[0]; // Level 1: isolated only
-            } else {
-                wrongForm = wrongForms[Phaser.Math.Between(0, wrongForms.length - 1)];
-            }
-
-            this.createFloatingLetter(positions[i].x, positions[i].y, wrongForm, false);
-        }
-    }
-
-    createFloatingLetter(x, y, letter, isCorrect) {
-        // Create a container-like object using GUI box background + text
-        // All letters look the same - player must identify by sound!
-        // Use rectangular box to ensure Arabic letters are fully visible
-        const boxWidth = 100;
-        const boxHeight = 100;
-
-        const bg = this.add.image(x, y, 'gui_box_orange');
-        bg.setDisplaySize(boxWidth, boxHeight);
-        bg.setDepth(10);
-
-        // Arabic text centered in box - sits on top (higher depth)
-        const letterText = this.add.text(x, y, letter, {
-            fontFamily: 'Noto Sans Arabic, Arial',
-            fontSize: '52px',
-            color: '#2c1810',
-            fontStyle: 'bold'
-        }).setOrigin(0.5, 0.5).setDepth(11);
-
-        // Create physics body for collision (rectangular hitbox)
-        const hitbox = this.floatingLetters.create(x, y, null);
-        hitbox.setVisible(false);
-        hitbox.body.setSize(boxWidth, boxHeight);
-        hitbox.body.velocity.x = -this.gameSpeed;
-        hitbox.isCorrect = isCorrect;
-        hitbox.letter = letter;
-        hitbox.letterText = letterText;
-        hitbox.letterBg = bg;
-
-        // Bobbing animation (like fruits)
-        this.tweens.add({
-            targets: [bg, letterText],
-            y: y - 12,
-            duration: 600,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-        });
-
-        return hitbox;
-    }
-
-    onCollectLetter(player, letterObj) {
-        if (!letterObj.active) return;
-        letterObj.active = false;
-
-        if (letterObj.isCorrect) {
-            // Correct letter collected!
-            this.correctCollections++;
-            this.updateProgressDisplay();
-
-            // Sound and visual feedback
-            if (window.AudioSynth) {
-                window.AudioSynth.playCorrect();
-            }
-            this.updateScore(50);
-            this.consecutiveCorrect++;
-
-            // Show feedback
-            this.showFeedback('Goed zo! ممتاز', '#27ae60', 1000);
-            this.createStarBurst(letterObj.x, letterObj.y);
-
-            // Check if collected enough times
-            if (this.correctCollections >= this.requiredCollections) {
-                // Mark this letter as completed
-                if (!this.completedLettersInLevel.includes(this.currentTarget.char)) {
-                    this.completedLettersInLevel.push(this.currentTarget.char);
-                }
-
-                // Bonus for completing letter
-                this.updateScore(100);
-                this.showFeedback('Letter compleet! +100', '#f4d03f', 1500);
-
-                // Select new letter after delay
-                this.time.delayedCall(2000, () => {
-                    this.selectNewTarget();
-                });
-            }
-
-            // Speed up slightly
-            this.gameSpeed = Math.min(this.gameSpeed + 3, this.maxGameSpeed);
-        } else {
-            // Wrong letter!
-            if (window.AudioSynth) {
-                window.AudioSynth.playWrong();
-            }
-
-            this.consecutiveCorrect = 0;
-            this.showFeedback('Probeer opnieuw!', '#e74c3c', 1000);
-
-            // Speak the correct letter again
-            this.time.delayedCall(800, () => {
-                if (window.AudioSynth && this.currentTarget) {
-                    window.AudioSynth.speakLetter(this.currentTarget.sound, this);
-                }
-            });
-        }
-
-        // Remove the letter
-        if (letterObj.letterText) letterObj.letterText.destroy();
-        if (letterObj.letterBg) letterObj.letterBg.destroy();
-        letterObj.destroy();
-    }
-
-    spawnObstacle() {
-        if (this.isGameOver) return;
-
-        const x = 1400;
-        const y = this.groundY;
-
-        // Use spikes as obstacle
-        const obstacle = this.obstacles.create(x, y, 'spikes');
-        obstacle.setOrigin(0.5, 1);
-        obstacle.setScale(2); // Scale up the 16x16 spikes
-        obstacle.body.setSize(32, 16);
-        obstacle.body.setOffset(0, 16);
-        obstacle.body.velocity.x = -this.gameSpeed;
-
-        return obstacle;
-    }
-
-    spawnFruit(x, y) {
-        if (this.isGameOver) return;
-
-        // Pick a random fruit type
-        const fruitType = Phaser.Math.RND.pick(this.fruitTypes);
-        const fruit = this.collectibles.create(x, y, fruitType);
-        fruit.setScale(1.5);
-        fruit.body.velocity.x = -this.gameSpeed;
-        fruit.itemType = 'fruit';
-        fruit.fruitType = fruitType;
-        fruit.value = 10;
-
-        // Play fruit animation
-        fruit.play(`${fruitType}_anim`);
-
-        // Bobbing animation
-        this.tweens.add({
-            targets: fruit,
-            y: y - 10,
-            duration: 500,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-        });
-
-        return fruit;
-    }
-
-    spawnBook(x, y) {
-        if (this.isGameOver) return;
-
-        // Use melon as "special" collectible
-        const book = this.collectibles.create(x, y, 'melon');
-        book.setScale(2);
-        book.body.velocity.x = -this.gameSpeed;
-        book.itemType = 'book';
-        book.value = 25;
-        book.play('melon_anim');
-
-        return book;
-    }
-
-    jump() {
-        if (this.isGameOver || !this.canJump) return;
-
-        if (this.player.body.touching.down || this.isOnGround) {
-            this.player.setVelocityY(-550);
-            this.player.play('player_jump_anim');
-            this.canJump = false;
-            this.isOnGround = false;
-
-            // Play jump sound
-            if (window.AudioSynth) {
-                window.AudioSynth.playJump();
-            }
-        }
     }
 
     onPlatformLand(player, platform) {
         if (player.body.touching.down) {
             this.isOnGround = true;
             this.canJump = true;
-            player.play('player_run_anim', true);
-        }
-    }
 
-    onObstacleHit(player, obstacle) {
-        if (!obstacle.active) return;
-        obstacle.active = false;
-
-        // Lose a life
-        this.loseLife();
-
-        // Play hit animation
-        player.play('player_hit_anim');
-
-        // Knockback
-        player.setVelocityX(-150);
-        player.setVelocityY(-200);
-
-        // Flash player
-        this.tweens.add({
-            targets: player,
-            alpha: 0.3,
-            duration: 100,
-            yoyo: true,
-            repeat: 5,
-            onComplete: () => {
-                if (!this.isGameOver) {
-                    player.play('player_run_anim', true);
-                }
+            // Play run or idle animation based on movement
+            if (Math.abs(player.body.velocity.x) > 10) {
+                player.play('player_run_anim', true);
+            } else {
+                player.play('player_idle_anim', true);
             }
-        });
-
-        // Remove obstacle
-        obstacle.destroy();
-    }
-
-    onCollectItem(player, item) {
-        if (!item.active) return;
-        item.active = false;
-
-        // Score based on item type
-        this.updateScore(item.value);
-
-        // Sound
-        if (window.AudioSynth) {
-            window.AudioSynth.playCoin();
         }
-
-        // Play collected animation
-        const collected = this.add.sprite(item.x, item.y, 'collected');
-        collected.setScale(1.5);
-        collected.play('collected_anim');
-        collected.once('animationcomplete', () => {
-            collected.destroy();
-        });
-
-        // Remove the item
-        item.destroy();
     }
 
-    loseLife() {
-        this.lives--;
+    onCollectLetter(player, letterObj) {
+        if (!letterObj.active || letterObj.collected) return;
+        letterObj.collected = true;
 
-        // Update hearts UI
-        if (this.hearts[this.lives]) {
-            this.tweens.add({
-                targets: this.hearts[this.lives],
-                scale: 0,
-                alpha: 0,
-                duration: 300
+        if (letterObj.isCorrect) {
+            // Correct letter!
+            if (window.AudioSynth) window.AudioSynth.playCorrect();
+
+            this.updateScore(100);
+            this.showFeedback('Goed zo! ممتاز', '#27ae60', 1000);
+            this.createStarBurst(letterObj.x, letterObj.y);
+
+            // Mark letter as completed
+            if (!this.completedLettersInLevel.includes(this.currentTarget.char)) {
+                this.completedLettersInLevel.push(this.currentTarget.char);
+            }
+
+            // Remove the box
+            if (letterObj.letterBg) letterObj.letterBg.destroy();
+            if (letterObj.letterText) letterObj.letterText.destroy();
+            letterObj.destroy();
+
+            // Select next target after delay
+            this.time.delayedCall(1500, () => {
+                this.selectNewTarget();
             });
-        }
+        } else {
+            // Wrong letter
+            if (window.AudioSynth) window.AudioSynth.playWrong();
 
-        // Sound
-        if (window.AudioSynth) {
-            window.AudioSynth.playWrong();
-        }
+            this.showFeedback('Probeer opnieuw!', '#e74c3c', 1000);
 
-        // Check game over
-        if (this.lives <= 0) {
-            this.gameOver();
+            // Shake the box
+            this.tweens.add({
+                targets: [letterObj.letterBg, letterObj.letterText],
+                x: letterObj.x + 10,
+                duration: 50,
+                yoyo: true,
+                repeat: 3
+            });
+
+            // Speak correct letter again
+            this.time.delayedCall(800, () => {
+                if (window.AudioSynth && this.currentTarget) {
+                    window.AudioSynth.speakLetter(this.currentTarget.sound, this);
+                }
+            });
+
+            // Reset collected flag so player can try again
+            letterObj.collected = false;
+        }
+    }
+
+    jump() {
+        if (this.isGameOver || !this.canJump) return;
+
+        if (this.player.body.touching.down || this.isOnGround) {
+            this.player.setVelocityY(this.jumpForce);
+            this.player.play('player_jump_anim');
+            this.canJump = false;
+            this.isOnGround = false;
+
+            if (window.AudioSynth) window.AudioSynth.playJump();
         }
     }
 
@@ -918,7 +708,6 @@ class GameScene extends Phaser.Scene {
         this.score += points;
         this.scoreText.setText(this.score.toString());
 
-        // Animate score increase
         if (points > 0) {
             this.tweens.add({
                 targets: this.scoreText,
@@ -947,12 +736,11 @@ class GameScene extends Phaser.Scene {
         for (let i = 0; i < 5; i++) {
             const star = this.add.image(x, y, 'gui_star').setScale(0.4);
             const angle = (i / 5) * Math.PI * 2;
-            const distance = 80;
 
             this.tweens.add({
                 targets: star,
-                x: x + Math.cos(angle) * distance,
-                y: y + Math.sin(angle) * distance - 30,
+                x: x + Math.cos(angle) * 80,
+                y: y + Math.sin(angle) * 80 - 30,
                 scale: 0,
                 alpha: 0,
                 rotation: Math.PI,
@@ -963,11 +751,91 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    returnToMenu() {
-        // Stop background music
+    levelComplete() {
+        this.isGameOver = true;
         this.stopBackgroundMusic();
 
-        // Fade out and return to menu
+        // Save progress
+        const unlockedLevel = parseInt(localStorage.getItem('farisUnlockedLevel') || '1');
+        if (this.currentLevel >= unlockedLevel && this.currentLevel < 3) {
+            localStorage.setItem('farisUnlockedLevel', (this.currentLevel + 1).toString());
+        }
+
+        const completedLetters = JSON.parse(localStorage.getItem('farisCompletedLetters') || '{}');
+        completedLetters[this.currentLevel] = this.completedLettersInLevel;
+        localStorage.setItem('farisCompletedLetters', JSON.stringify(completedLetters));
+
+        this.showLevelCompleteScreen();
+    }
+
+    showLevelCompleteScreen() {
+        // Darken background
+        const overlay = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.8);
+        overlay.setScrollFactor(0).setDepth(150);
+
+        // Level complete text
+        const completeText = this.add.text(640, 180, 'Niveau Compleet!', {
+            fontFamily: 'Arial',
+            fontSize: '64px',
+            color: '#27ae60',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
+
+        // Arabic congratulations
+        this.add.text(640, 250, 'أحسنت!', {
+            fontFamily: 'Noto Sans Arabic, Arial',
+            fontSize: '48px',
+            color: '#f4d03f'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
+
+        // Score
+        this.add.text(640, 320, `Score: ${this.score}`, {
+            fontFamily: 'Arial',
+            fontSize: '36px',
+            color: '#ffffff'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
+
+        // Letters learned
+        this.add.text(640, 380, `Letters geleerd: ${this.completedLettersInLevel.length}`, {
+            fontFamily: 'Arial',
+            fontSize: '24px',
+            color: '#98D8E8'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
+
+        // Next level button
+        if (this.currentLevel < 3) {
+            const nextBtn = this.add.text(640, 480, '▶ Volgende Niveau', {
+                fontFamily: 'Arial',
+                fontSize: '28px',
+                color: '#ffffff',
+                backgroundColor: '#27ae60',
+                padding: { x: 30, y: 15 }
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(151).setInteractive({ useHandCursor: true });
+
+            nextBtn.on('pointerdown', () => {
+                window.GameData.currentLevel = this.currentLevel + 1;
+                this.scene.restart();
+            });
+            nextBtn.on('pointerover', () => nextBtn.setScale(1.1));
+            nextBtn.on('pointerout', () => nextBtn.setScale(1));
+        }
+
+        // Menu button
+        const menuBtn = this.add.text(640, 560, '← Terug naar Menu', {
+            fontFamily: 'Arial',
+            fontSize: '24px',
+            color: '#ffffff',
+            backgroundColor: '#3498db',
+            padding: { x: 25, y: 12 }
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(151).setInteractive({ useHandCursor: true });
+
+        menuBtn.on('pointerdown', () => this.scene.start('MenuScene'));
+        menuBtn.on('pointerover', () => menuBtn.setScale(1.1));
+        menuBtn.on('pointerout', () => menuBtn.setScale(1));
+    }
+
+    returnToMenu() {
+        this.stopBackgroundMusic();
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
             this.scene.start('MenuScene');
@@ -976,164 +844,97 @@ class GameScene extends Phaser.Scene {
 
     gameOver() {
         this.isGameOver = true;
-
-        // Stop background music
         this.stopBackgroundMusic();
 
-        // Save high score
         window.GameData.saveHighScore(this.score);
 
-        // Stop player
         this.player.setVelocity(0, 0);
         this.player.body.enable = false;
         this.player.play('player_hit_anim');
 
-        // Disable controls
         this.joystick.enable = false;
         this.jumpButton.disableInteractive();
 
-        // Show game over screen
-        this.time.delayedCall(500, () => {
-            this.showGameOverScreen();
-        });
+        this.time.delayedCall(500, () => this.showGameOverScreen());
     }
 
     showGameOverScreen() {
-        // Darken background
         const overlay = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.7);
-        overlay.setDepth(90);
+        overlay.setScrollFactor(0).setDepth(150);
 
-        // Game Over text (Dutch: "Einde Spel")
         this.add.text(640, 200, 'Einde Spel', {
             fontFamily: 'Arial',
             fontSize: '72px',
             color: '#e74c3c',
             fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(100);
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
 
-        // Arabic text
         this.add.text(640, 270, 'انتهت اللعبة', {
             fontFamily: 'Noto Sans Arabic, Arial',
             fontSize: '36px',
             color: '#ffffff'
-        }).setOrigin(0.5).setDepth(100);
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
 
-        // Final score (Dutch: "Je score")
         this.add.text(640, 340, `Je score: ${this.score}`, {
             fontFamily: 'Arial',
             fontSize: '48px',
             color: '#f4d03f',
             fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(100);
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
 
-        // High score (Dutch: "Beste")
         this.add.text(640, 400, `Beste: ${window.GameData.highScore}`, {
             fontFamily: 'Arial',
             fontSize: '32px',
             color: '#ffffff'
-        }).setOrigin(0.5).setDepth(100);
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
 
-        // New high score message if applicable
-        if (this.score > window.GameData.highScore) {
-            this.add.text(640, 450, 'Nieuwe hoogste score!', {
-                fontFamily: 'Arial',
-                fontSize: '24px',
-                color: '#f4d03f',
-                fontStyle: 'bold'
-            }).setOrigin(0.5).setDepth(100);
-        }
-
-        // Restart button using GUI bundle button
         const restartBtn = this.add.image(640, 520, 'gui_btn_replay')
             .setInteractive()
-            .setDepth(100)
+            .setScrollFactor(0)
+            .setDepth(151)
             .setScale(1.5);
 
-        restartBtn.on('pointerdown', () => {
-            this.scene.restart();
-        });
-
-        restartBtn.on('pointerover', () => {
-            restartBtn.setScale(1.7);
-        });
-
-        restartBtn.on('pointerout', () => {
-            restartBtn.setScale(1.5);
-        });
+        restartBtn.on('pointerdown', () => this.scene.restart());
+        restartBtn.on('pointerover', () => restartBtn.setScale(1.7));
+        restartBtn.on('pointerout', () => restartBtn.setScale(1.5));
     }
 
     update(time, delta) {
         if (this.isGameOver) return;
 
-        // Parallax scrolling - each layer at different speed for depth effect
-        // Synced with game speed for realistic movement
-        this.parallaxLayers.forEach(layer => {
-            layer.tilePositionX += this.gameSpeed * layer.scrollSpeed;
-        });
-
-        // Handle player movement and animation
+        // Handle player movement
         this.handlePlayerMovement();
 
-        // Update object velocities based on game speed
-        this.updateObjectVelocities();
-
-        // Spawn management
-        this.handleSpawning(time);
-
-        // Cleanup off-screen objects
-        this.cleanupObjects();
-
-        // Update decorations
-        this.updateDecorations();
-
-        // Update floating letter positions (text and background follow hitbox)
-        this.floatingLetters.getChildren().forEach(letterObj => {
-            if (letterObj.letterText) {
-                letterObj.letterText.x = letterObj.x;
-            }
-            if (letterObj.letterBg) {
-                letterObj.letterBg.x = letterObj.x;
-            }
-        });
+        // Check if player fell off the world
+        if (this.player.y > this.levelHeight) {
+            this.loseLife();
+            this.respawnPlayer();
+        }
     }
 
     handlePlayerMovement() {
-        // Get joystick input
         const cursorKeys = this.joystick.createCursorKeys();
-
-        // Combine joystick and keyboard input
         const left = cursorKeys.left.isDown || this.cursors.left.isDown;
         const right = cursorKeys.right.isDown || this.cursors.right.isDown;
         const jumpKey = this.cursors.up.isDown || this.spaceKey.isDown;
 
         // Horizontal movement
         if (left) {
-            this.player.setVelocityX(-250);
+            this.player.setVelocityX(-this.playerSpeed);
             this.player.setFlipX(true);
-            if (this.isOnGround && this.player.anims.currentAnim?.key !== 'player_run_anim') {
-                this.player.play('player_run_anim', true);
-            }
+            if (this.isOnGround) this.player.play('player_run_anim', true);
         } else if (right) {
-            this.player.setVelocityX(250);
+            this.player.setVelocityX(this.playerSpeed);
             this.player.setFlipX(false);
-            if (this.isOnGround && this.player.anims.currentAnim?.key !== 'player_run_anim') {
-                this.player.play('player_run_anim', true);
-            }
+            if (this.isOnGround) this.player.play('player_run_anim', true);
         } else {
-            // Auto-run forward in endless runner
-            this.player.setVelocityX(50);
-            this.player.setFlipX(false);
-            // Always show run animation when on ground (it's an endless runner!)
-            if (this.isOnGround && this.player.anims.currentAnim?.key !== 'player_run_anim') {
-                this.player.play('player_run_anim', true);
-            }
+            this.player.setVelocityX(0);
+            if (this.isOnGround) this.player.play('player_idle_anim', true);
         }
 
-        // Check if falling
+        // Falling animation
         if (!this.isOnGround && this.player.body.velocity.y > 0) {
-            if (this.player.anims.currentAnim?.key !== 'player_fall_anim') {
-                this.player.play('player_fall_anim', true);
-            }
+            this.player.play('player_fall_anim', true);
         }
 
         // Jump from keyboard
@@ -1141,79 +942,45 @@ class GameScene extends Phaser.Scene {
             this.jump();
         }
 
-        // Keep player in bounds
-        this.player.x = Phaser.Math.Clamp(this.player.x, 50, 400);
-    }
-
-    updateObjectVelocities() {
-        // Update all moving objects to current game speed
-        const speed = -this.gameSpeed;
-
-        this.platforms.getChildren().forEach(p => p.body.velocity.x = speed);
-        this.obstacles.getChildren().forEach(o => o.body.velocity.x = speed);
-        this.collectibles.getChildren().forEach(c => c.body.velocity.x = speed);
-        this.floatingLetters.getChildren().forEach(fl => fl.body.velocity.x = speed);
-    }
-
-    handleSpawning(time) {
-        // Spawn obstacles (less frequent to not interfere with letter learning)
-        if (time - this.lastObstacleTime > this.obstacleInterval) {
-            if (Phaser.Math.Between(0, 100) < 25) {
-                this.spawnObstacle();
-            }
-            this.lastObstacleTime = time;
-            this.obstacleInterval = Math.max(3000, this.obstacleInterval - 5);
-        }
-
-        // Spawn floating letters periodically (if we have a target and haven't completed it)
-        if (this.currentTarget && this.correctCollections < this.requiredCollections) {
-            if (time - this.lastPlatformTime > this.platformInterval) {
-                // Spawn new group when previous group has moved past halfway point
-                const existingLetters = this.floatingLetters.getChildren();
-                const canSpawn = existingLetters.length === 0 ||
-                    existingLetters.every(l => l.x < 700); // Past center of screen
-
-                if (canSpawn) {
-                    this.spawnFloatingLetters();
-                    this.lastPlatformTime = time;
-                    this.platformInterval = 2000; // 2 second minimum between groups
-                }
-            }
+        // Check if player is on ground
+        if (!this.player.body.touching.down) {
+            this.isOnGround = false;
         }
     }
 
-    cleanupObjects() {
-        // Remove off-screen objects
-        const cleanup = (group) => {
-            group.getChildren().forEach(obj => {
-                if (obj.x < -100) {
-                    if (obj.letterText) {
-                        obj.letterText.destroy();
-                    }
-                    if (obj.letterBg) {
-                        obj.letterBg.destroy();
-                    }
-                    obj.destroy();
-                }
+    loseLife() {
+        this.lives--;
+
+        if (this.hearts[this.lives]) {
+            this.tweens.add({
+                targets: this.hearts[this.lives],
+                scale: 0,
+                alpha: 0,
+                duration: 300
             });
-        };
+        }
 
-        cleanup(this.platforms);
-        cleanup(this.obstacles);
-        cleanup(this.collectibles);
-        cleanup(this.floatingLetters);
+        if (window.AudioSynth) window.AudioSynth.playWrong();
+
+        if (this.lives <= 0) {
+            this.gameOver();
+        }
     }
 
-    updateDecorations() {
-        // Move decorations
-        this.decorations.getChildren().forEach(deco => {
-            deco.x -= this.gameSpeed * 0.01;
+    respawnPlayer() {
+        if (this.isGameOver) return;
 
-            // Respawn on right when off screen
-            if (deco.x < -100) {
-                deco.x = 1400 + Phaser.Math.Between(0, 200);
-                deco.y = this.groundY - Phaser.Math.Between(30, 80);
-            }
+        // Respawn at start of level
+        this.player.setPosition(150, this.groundY - 100);
+        this.player.setVelocity(0, 0);
+
+        // Flash effect
+        this.tweens.add({
+            targets: this.player,
+            alpha: 0.3,
+            duration: 100,
+            yoyo: true,
+            repeat: 3
         });
     }
 }
