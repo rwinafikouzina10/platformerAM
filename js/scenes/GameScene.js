@@ -305,24 +305,21 @@ class GameScene extends Phaser.Scene {
             const topTile = this.platforms.create(x, this.groundY, this.currentTileset, style.topMid);
             topTile.setOrigin(0, 0);
             topTile.setScale(scale);
-            topTile.body.setSize(tileSize, tileSize);
-            topTile.body.setOffset(0, 0);
+            topTile.refreshBody();  // Updates physics body to match scaled size
             chunkTiles.push(topTile);
 
             // Fill layer 1
             const fillTile = this.platforms.create(x, this.groundY + tileSize, this.currentTileset, style.midMid);
             fillTile.setOrigin(0, 0);
             fillTile.setScale(scale);
-            fillTile.body.setSize(tileSize, tileSize);
-            fillTile.body.setOffset(0, 0);
+            fillTile.refreshBody();
             chunkTiles.push(fillTile);
 
             // Fill layer 2
             const fill2Tile = this.platforms.create(x, this.groundY + tileSize * 2, this.currentTileset, style.midMid);
             fill2Tile.setOrigin(0, 0);
             fill2Tile.setScale(scale);
-            fill2Tile.body.setSize(tileSize, tileSize);
-            fill2Tile.body.setOffset(0, 0);
+            fill2Tile.refreshBody();
             chunkTiles.push(fill2Tile);
         }
 
@@ -656,9 +653,7 @@ class GameScene extends Phaser.Scene {
             const tile = this.platforms.create(x + (i * tileSize), y, this.currentTileset, tileFrame);
             tile.setOrigin(0, 0);
             tile.setScale(scale);  // Scale 16x16 to 32x32
-            // Refresh body to match scaled size
-            tile.body.setSize(tileSize, tileSize);
-            tile.body.setOffset(0, 0);
+            tile.refreshBody();  // Updates physics body to match scaled size
             chunkTiles.push(tile);
         }
 
@@ -679,9 +674,7 @@ class GameScene extends Phaser.Scene {
                 const tile = this.platforms.create(x + (i * tileSize), y + (row * tileSize), this.currentTileset, tileFrame);
                 tile.setOrigin(0, 0);
                 tile.setScale(scale);  // Scale 16x16 to 32x32
-                // Refresh body to match scaled size
-                tile.body.setSize(tileSize, tileSize);
-                tile.body.setOffset(0, 0);
+                tile.refreshBody();  // Updates physics body to match scaled size
                 chunkTiles.push(tile);
             }
         }
