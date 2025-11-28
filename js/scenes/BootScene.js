@@ -84,16 +84,33 @@ class BootScene extends Phaser.Scene {
     loadExternalAssets() {
         const basePath = 'assets/';
 
-        // --- PLAYER SPRITES (Kenney Adventurer) ---
-        // Load individual pose images for the adventurer character (80x110 px each)
-        this.load.image('player_idle', basePath + 'images/adventurer/Poses/adventurer_stand.png');
-        this.load.image('player_walk1', basePath + 'images/adventurer/Poses/adventurer_walk1.png');
-        this.load.image('player_walk2', basePath + 'images/adventurer/Poses/adventurer_walk2.png');
-        this.load.image('player_jump', basePath + 'images/adventurer/Poses/adventurer_jump.png');
-        this.load.image('player_fall', basePath + 'images/adventurer/Poses/adventurer_fall.png');
-        this.load.image('player_hurt', basePath + 'images/adventurer/Poses/adventurer_hurt.png');
-        this.load.image('player_duck', basePath + 'images/adventurer/Poses/adventurer_duck.png');
-        this.load.image('player_action', basePath + 'images/adventurer/Poses/adventurer_action1.png');
+        // --- NEW PLAYER CHARACTER (Arabian Adventurer) ---
+        // 64x64 pixel character spritesheets
+        this.load.spritesheet('player_run', basePath + 'images/character/run_spritesheet.png', {
+            frameWidth: 64,
+            frameHeight: 64
+        });
+        this.load.spritesheet('player_jump', basePath + 'images/character/jump_spritesheet.png', {
+            frameWidth: 64,
+            frameHeight: 64
+        });
+        this.load.image('player_idle', basePath + 'images/character/idle.png');
+        this.load.image('player_stand', basePath + 'images/character/stand.png');
+
+        // --- GUI ASSETS ---
+        // Hearts for lives display
+        this.load.image('gui_heart_full', basePath + 'images/gui/icons/Icon_Large_HeartFull.png');
+        this.load.image('gui_heart_empty', basePath + 'images/gui/icons/Icon_Large_HeartEmpty.png');
+        this.load.image('gui_heart_half', basePath + 'images/gui/icons/Icon_Large_HeartHalf.png');
+        // Stars
+        this.load.image('gui_star', basePath + 'images/gui/icons/Icon_Large_Star.png');
+        this.load.image('gui_star_grey', basePath + 'images/gui/icons/Icon_Large_StarGrey.png');
+        // Buttons
+        this.load.image('gui_btn_replay', basePath + 'images/gui/buttons/PremadeButtons_Replay.png');
+        this.load.image('gui_btn_menu', basePath + 'images/gui/buttons/PremadeButtons_Menu.png');
+        this.load.image('gui_btn_resume', basePath + 'images/gui/buttons/PremadeButtons_Resume.png');
+        this.load.image('gui_btn_yes', basePath + 'images/gui/buttons/PremadeButtons_YesGreen.png');
+        this.load.image('gui_btn_no', basePath + 'images/gui/buttons/PremadeButtons_No.png');
 
         // --- BACKGROUNDS ---
         this.load.image('bg_yellow', basePath + 'images/background/Yellow.png');
@@ -371,7 +388,7 @@ class BootScene extends Phaser.Scene {
     }
 
     createAnimations() {
-        // Player animations using individual Kenney Adventurer pose images
+        // Player animations using new Arabian Adventurer spritesheets (64x64)
         this.anims.create({
             key: 'player_idle_anim',
             frames: [{ key: 'player_idle' }],
@@ -381,38 +398,35 @@ class BootScene extends Phaser.Scene {
 
         this.anims.create({
             key: 'player_run_anim',
-            frames: [
-                { key: 'player_walk1' },
-                { key: 'player_walk2' }
-            ],
-            frameRate: 8,
+            frames: this.anims.generateFrameNumbers('player_run', { start: 0, end: 3 }),
+            frameRate: 10,
             repeat: -1
         });
 
         this.anims.create({
             key: 'player_jump_anim',
-            frames: [{ key: 'player_jump' }],
-            frameRate: 1,
+            frames: this.anims.generateFrameNumbers('player_jump', { start: 0, end: 4 }),
+            frameRate: 12,
             repeat: 0
         });
 
         this.anims.create({
             key: 'player_fall_anim',
-            frames: [{ key: 'player_fall' }],
-            frameRate: 1,
+            frames: this.anims.generateFrameNumbers('player_jump', { start: 5, end: 8 }),
+            frameRate: 10,
             repeat: 0
         });
 
         this.anims.create({
             key: 'player_double_jump_anim',
-            frames: [{ key: 'player_action' }],
-            frameRate: 1,
+            frames: this.anims.generateFrameNumbers('player_jump', { start: 0, end: 8 }),
+            frameRate: 15,
             repeat: 0
         });
 
         this.anims.create({
             key: 'player_hit_anim',
-            frames: [{ key: 'player_hurt' }],
+            frames: [{ key: 'player_idle' }],  // Use idle as hurt fallback
             frameRate: 1,
             repeat: 0
         });

@@ -162,15 +162,15 @@ class GameScene extends Phaser.Scene {
     }
 
     createPlayer() {
-        // Create player sprite with Kenney Adventurer (80x110 px)
-        this.player = this.physics.add.sprite(200, this.groundY - 60, 'player_idle');
-        this.player.setScale(0.9); // Scale down the 80x110 sprite to fit
+        // Create player sprite with Arabian Adventurer (64x64 px)
+        this.player = this.physics.add.sprite(200, this.groundY - 50, 'player_idle');
+        this.player.setScale(1.4); // Scale up the 64x64 sprite for visibility
         this.player.setBounce(0.1);
         this.player.setCollideWorldBounds(true);
 
-        // Adjust hitbox for the adventurer sprite
-        this.player.body.setSize(40, 90);
-        this.player.body.setOffset(20, 15);
+        // Adjust hitbox for the 64x64 character sprite (scaled)
+        this.player.body.setSize(40, 55);
+        this.player.body.setOffset(12, 9);
 
         // Start idle animation
         this.player.play('player_idle_anim');
@@ -218,10 +218,10 @@ class GameScene extends Phaser.Scene {
             fontStyle: 'bold'
         }).setOrigin(0, 0.5);
 
-        // Lives (hearts) - top right
+        // Lives (hearts) - top right using GUI assets
         this.hearts = [];
         for (let i = 0; i < 3; i++) {
-            const heart = this.add.image(1200 - (i * 45), 35, 'heart').setScale(0.7);
+            const heart = this.add.image(1200 - (i * 50), 35, 'gui_heart_full').setScale(0.8);
             this.hearts.push(heart);
         }
 
@@ -884,7 +884,7 @@ class GameScene extends Phaser.Scene {
 
     createStarBurst(x, y) {
         for (let i = 0; i < 5; i++) {
-            const star = this.add.image(x, y, 'star').setScale(0.3);
+            const star = this.add.image(x, y, 'gui_star').setScale(0.4);
             const angle = (i / 5) * Math.PI * 2;
             const distance = 80;
 
@@ -968,22 +968,22 @@ class GameScene extends Phaser.Scene {
             }).setOrigin(0.5).setDepth(100);
         }
 
-        // Restart button using Pixel Adventure button
-        const restartBtn = this.add.image(640, 520, 'btn_restart')
+        // Restart button using GUI bundle button
+        const restartBtn = this.add.image(640, 520, 'gui_btn_replay')
             .setInteractive()
             .setDepth(100)
-            .setScale(2);
+            .setScale(1.5);
 
         restartBtn.on('pointerdown', () => {
             this.scene.restart();
         });
 
         restartBtn.on('pointerover', () => {
-            restartBtn.setScale(2.2);
+            restartBtn.setScale(1.7);
         });
 
         restartBtn.on('pointerout', () => {
-            restartBtn.setScale(2);
+            restartBtn.setScale(1.5);
         });
     }
 
