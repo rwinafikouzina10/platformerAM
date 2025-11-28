@@ -396,10 +396,10 @@ class GameScene extends Phaser.Scene {
     }
 
     placeLetters() {
-        // Mario-like letter placement:
-        // - Only ONE correct letter visible at a time (widely spaced)
+        // Letter placement with choices:
+        // - 3 letters visible at each spawn point (1 correct + 2 wrong)
         // - Letters guide the player forward
-        // - If missed, letter respawns ahead
+        // - If missed, letters respawn ahead
 
         // Sort platforms by X position (left to right)
         const sortedPlatforms = this.platformPositions
@@ -426,7 +426,7 @@ class GameScene extends Phaser.Scene {
             }
         }
 
-        // Initially spawn first 2 letter boxes (correct + 1 wrong nearby)
+        // Initially spawn first letter set (1 correct + 2 wrong)
         this.spawnNextLetterSet();
     }
 
@@ -444,37 +444,83 @@ class GameScene extends Phaser.Scene {
 
         if (aheadPoints.length === 0) return;
 
-        // Use the first available point
+        // Use the first available point as base
         const spawnPoint = aheadPoints[0];
         spawnPoint.used = true;
 
-        // Create the letter box
-        const letterBox = this.createLetterBox(
-            spawnPoint.x,
-            spawnPoint.y,
-            null,
-            false,
-            true
-        );
+        // Create 3 letter boxes: 1 correct + 2 wrong
+        // Space them horizontally so all are visible
+        const letterSpacing = 120;
+        const positions = [
+            { x: spawnPoint.x - letterSpacing, y: spawnPoint.y },
+            { x: spawnPoint.x, y: spawnPoint.y - 40 },
+            { x: spawnPoint.x + letterSpacing, y: spawnPoint.y }
+        ];
 
-        if (letterBox) {
-            letterBox.spawnPoint = spawnPoint;
-            this.activeLetterBoxes.push(letterBox);
+        // Shuffle positions so correct letter is randomly placed
+        Phaser.Utils.Array.Shuffle(positions);
+
+        // Get letter data
+        const letters = window.GameData.letters;
+        let correctLetter, wrongLetters = [];
+
+        if (this.currentTarget) {
+            // Get correct letter
+            const targetForms = this.currentTarget.forms || [this.currentTarget.char];
+            correctLetter = this.currentLevel === 1 ? targetForms[0] :
+                targetForms[Phaser.Math.Between(0, targetForms.length - 1)];
+
+            // Get 2 wrong letters
+            for (let i = 0; i < 2; i++) {
+                let wrongLetterData;
+                let attempts = 0;
+                do {
+                    wrongLetterData = letters[Phaser.Math.Between(0, letters.length - 1)];
+                    attempts++;
+                } while ((wrongLetterData.char === this.currentTarget.char ||
+                         wrongLetters.includes(wrongLetterData.char)) && attempts < 20);
+
+                const wrongForms = wrongLetterData.forms || [wrongLetterData.char];
+                const wrongLetter = this.currentLevel === 1 ? wrongForms[0] :
+                    wrongForms[Phaser.Math.Between(0, wrongForms.length - 1)];
+                wrongLetters.push(wrongLetter);
+            }
         }
+
+        // Create the 3 letter boxes
+        positions.forEach((pos, index) => {
+            const isCorrect = (index === 0); // First position (after shuffle) is correct
+            const letter = isCorrect ? correctLetter : wrongLetters[index - 1];
+
+            const letterBox = this.createLetterBox(
+                pos.x,
+                pos.y,
+                letter || '?',
+                isCorrect,
+                !this.currentTarget
+            );
+
+            if (letterBox) {
+                letterBox.spawnPoint = spawnPoint;
+                this.activeLetterBoxes.push(letterBox);
+            }
+        });
     }
 
     clearPassedLetters() {
         if (!this.player) return;
 
         const playerX = this.player.x;
+        const clearedSpawnPoints = new Set();
 
         // Check for letters that player has passed (more than 400px behind)
         this.activeLetterBoxes = this.activeLetterBoxes.filter(box => {
             if (!box.active) return false;
 
             if (box.x < playerX - 400 && !box.collected) {
-                // Player passed this letter - respawn it ahead
-                if (box.spawnPoint) {
+                // Track which spawn points have been cleared
+                if (box.spawnPoint && !clearedSpawnPoints.has(box.spawnPoint)) {
+                    clearedSpawnPoints.add(box.spawnPoint);
                     box.spawnPoint.used = false;
                 }
 
@@ -483,15 +529,17 @@ class GameScene extends Phaser.Scene {
                 if (box.letterText) box.letterText.destroy();
                 box.destroy();
 
-                // Spawn new letter ahead
-                this.time.delayedCall(100, () => {
-                    this.spawnNextLetterSet();
-                });
-
                 return false;
             }
             return true;
         });
+
+        // Spawn new letter set for each cleared group (only once per group)
+        if (clearedSpawnPoints.size > 0) {
+            this.time.delayedCall(100, () => {
+                this.spawnNextLetterSet();
+            });
+        }
     }
 
     addDecorations() {
@@ -869,10 +917,24 @@ class GameScene extends Phaser.Scene {
             window.AudioSynth.speakLetter(this.currentTarget.sound, this);
         }
 
-        // Update letter boxes with new target
-        this.updateLetterBoxes();
+        // Clear old letters and spawn fresh set with new target
+        this.clearAllLetterBoxes();
+        this.spawnNextLetterSet();
 
         this.showFeedback('Luister goed!', '#f4d03f', 1500);
+    }
+
+    clearAllLetterBoxes() {
+        // Clear all active letter boxes
+        this.activeLetterBoxes.forEach(box => {
+            if (box.spawnPoint) {
+                box.spawnPoint.used = false;
+            }
+            if (box.letterBg) box.letterBg.destroy();
+            if (box.letterText) box.letterText.destroy();
+            if (box.active) box.destroy();
+        });
+        this.activeLetterBoxes = [];
     }
 
     updateProgressDisplay() {
