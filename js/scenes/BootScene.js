@@ -259,6 +259,35 @@ class BootScene extends Phaser.Scene {
         this.load.image('slime', basePath + 'images/enemies/slime.png');
         this.load.image('slime_walk', basePath + 'images/enemies/slime_walk.png');
 
+        // --- NEW ENEMIES (Pixel Adventure 2) ---
+        // Mushroom enemy (32x32 frames)
+        this.load.spritesheet('enemy_mushroom_idle', basePath + 'images/enemies_new/Enemies/Mushroom/Idle (32x32).png', {
+            frameWidth: 32, frameHeight: 32
+        });
+        this.load.spritesheet('enemy_mushroom_run', basePath + 'images/enemies_new/Enemies/Mushroom/Run (32x32).png', {
+            frameWidth: 32, frameHeight: 32
+        });
+        this.load.image('enemy_mushroom_hit', basePath + 'images/enemies_new/Enemies/Mushroom/Hit.png');
+
+        // Slime enemy (44x30 frames)
+        this.load.spritesheet('enemy_slime_run', basePath + 'images/enemies_new/Enemies/Slime/Idle-Run (44x30).png', {
+            frameWidth: 44, frameHeight: 30
+        });
+        this.load.spritesheet('enemy_slime_hit', basePath + 'images/enemies_new/Enemies/Slime/Hit (44x30).png', {
+            frameWidth: 44, frameHeight: 30
+        });
+
+        // Chicken enemy (32x34 frames)
+        this.load.spritesheet('enemy_chicken_idle', basePath + 'images/enemies_new/Enemies/Chicken/Idle (32x34).png', {
+            frameWidth: 32, frameHeight: 34
+        });
+        this.load.spritesheet('enemy_chicken_run', basePath + 'images/enemies_new/Enemies/Chicken/Run (32x34).png', {
+            frameWidth: 32, frameHeight: 34
+        });
+        this.load.spritesheet('enemy_chicken_hit', basePath + 'images/enemies_new/Enemies/Chicken/Hit (32x34).png', {
+            frameWidth: 32, frameHeight: 34
+        });
+
         // --- UI BUTTONS ---
         this.load.image('btn_play', basePath + 'images/ui/Play.png');
         this.load.image('btn_restart', basePath + 'images/ui/Restart.png');
@@ -702,6 +731,55 @@ class BootScene extends Phaser.Scene {
             key: 'collected_anim',
             frames: this.anims.generateFrameNumbers('collected', { start: 0, end: 5 }),
             frameRate: 20,
+            repeat: 0
+        });
+
+        // --- ENEMY ANIMATIONS ---
+        // Mushroom
+        this.anims.create({
+            key: 'enemy_mushroom_idle',
+            frames: this.anims.generateFrameNumbers('enemy_mushroom_idle', { start: 0, end: 13 }),
+            frameRate: 12,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'enemy_mushroom_run',
+            frames: this.anims.generateFrameNumbers('enemy_mushroom_run', { start: 0, end: 15 }),
+            frameRate: 14,
+            repeat: -1
+        });
+
+        // Slime
+        this.anims.create({
+            key: 'enemy_slime_run',
+            frames: this.anims.generateFrameNumbers('enemy_slime_run', { start: 0, end: 9 }),
+            frameRate: 12,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'enemy_slime_hit',
+            frames: this.anims.generateFrameNumbers('enemy_slime_hit', { start: 0, end: 4 }),
+            frameRate: 15,
+            repeat: 0
+        });
+
+        // Chicken
+        this.anims.create({
+            key: 'enemy_chicken_idle',
+            frames: this.anims.generateFrameNumbers('enemy_chicken_idle', { start: 0, end: 12 }),
+            frameRate: 12,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'enemy_chicken_run',
+            frames: this.anims.generateFrameNumbers('enemy_chicken_run', { start: 0, end: 13 }),
+            frameRate: 14,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'enemy_chicken_hit',
+            frames: this.anims.generateFrameNumbers('enemy_chicken_hit', { start: 0, end: 4 }),
+            frameRate: 15,
             repeat: 0
         });
     }

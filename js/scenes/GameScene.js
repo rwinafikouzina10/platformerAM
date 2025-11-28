@@ -161,7 +161,15 @@ class GameScene extends Phaser.Scene {
         // Create physics groups
         this.platforms = this.physics.add.staticGroup();
         this.letterBoxes = this.physics.add.group({ allowGravity: false });
+        this.enemies = this.physics.add.group({ allowGravity: true });
         this.decorations = this.add.group();
+
+        // Enemy types available
+        this.enemyTypes = [
+            { key: 'enemy_mushroom_run', hitKey: 'enemy_mushroom_hit', width: 32, height: 32, speed: 60, scale: 1.5 },
+            { key: 'enemy_slime_run', hitKey: 'enemy_slime_hit', width: 44, height: 30, speed: 40, scale: 1.4 },
+            { key: 'enemy_chicken_run', hitKey: 'enemy_chicken_hit', width: 32, height: 34, speed: 80, scale: 1.3 }
+        ];
 
         // Generate the level procedurally
         this.generateLevel();
@@ -268,12 +276,65 @@ class GameScene extends Phaser.Scene {
         // Place letter spawn points for this chunk
         this.placeLettersInChunk(startX);
 
+        // Spawn enemies in this chunk (skip first few chunks for safety)
+        if (chunkIndex >= 2) {
+            this.spawnEnemiesInChunk(startX, chunkIndex);
+        }
+
         // Store chunk for later cleanup
         this.chunkTiles.push({
             startX: startX,
             endX: startX + this.chunkWidth,
             tiles: chunkTiles
         });
+    }
+
+    spawnEnemiesInChunk(startX, chunkIndex) {
+        // Spawn 1-3 enemies per chunk, more as difficulty increases
+        const difficulty = Math.min(chunkIndex / 15, 1);
+        const numEnemies = 1 + Math.floor(Math.random() * (1 + difficulty));
+
+        for (let i = 0; i < numEnemies; i++) {
+            // Random position within chunk
+            const x = startX + 200 + Math.random() * (this.chunkWidth - 400);
+            const y = this.groundY - 50;
+
+            // Pick random enemy type
+            const enemyType = this.enemyTypes[Phaser.Math.Between(0, this.enemyTypes.length - 1)];
+
+            this.createEnemy(x, y, enemyType);
+        }
+    }
+
+    createEnemy(x, y, enemyType) {
+        const enemy = this.enemies.create(x, y, enemyType.key);
+        enemy.setScale(enemyType.scale);
+        enemy.setBounce(0);
+        enemy.setCollideWorldBounds(false);
+
+        // Adjust hitbox to be slightly smaller than sprite
+        const hitboxWidth = enemyType.width * enemyType.scale * 0.7;
+        const hitboxHeight = enemyType.height * enemyType.scale * 0.8;
+        enemy.body.setSize(hitboxWidth, hitboxHeight);
+        enemy.body.setOffset(
+            (enemyType.width * enemyType.scale - hitboxWidth) / 2,
+            enemyType.height * enemyType.scale - hitboxHeight
+        );
+
+        // Store enemy properties
+        enemy.enemyType = enemyType;
+        enemy.moveSpeed = enemyType.speed;
+        enemy.direction = Math.random() > 0.5 ? 1 : -1;
+        enemy.isDead = false;
+        enemy.patrolMinX = x - 150;
+        enemy.patrolMaxX = x + 150;
+
+        // Start animation and movement
+        enemy.play(enemyType.key);
+        enemy.setVelocityX(enemy.direction * enemy.moveSpeed);
+        enemy.setFlipX(enemy.direction > 0);
+
+        return enemy;
     }
 
     placeLettersInChunk(startX) {
@@ -763,6 +824,97 @@ class GameScene extends Phaser.Scene {
         // Collisions
         this.physics.add.collider(this.player, this.platforms, this.onPlatformLand, null, this);
         this.physics.add.overlap(this.player, this.letterBoxes, this.onCollectLetter, null, this);
+
+        // Enemy collisions
+        this.physics.add.collider(this.enemies, this.platforms);
+        this.physics.add.overlap(this.player, this.enemies, this.onEnemyCollision, null, this);
+    }
+
+    onEnemyCollision(player, enemy) {
+        if (enemy.isDead) return;
+
+        // Check if player is stomping (falling onto enemy from above)
+        const playerBottom = player.body.bottom;
+        const enemyTop = enemy.body.top;
+        const playerVelY = player.body.velocity.y;
+
+        // Mario-style stomp: player must be falling and hit enemy from above
+        if (playerVelY > 0 && playerBottom <= enemyTop + 15) {
+            // Stomp the enemy!
+            this.stompEnemy(enemy);
+
+            // Bounce player up
+            player.setVelocityY(-350);
+            if (window.AudioSynth) window.AudioSynth.playCoin();
+        } else {
+            // Player got hit by enemy
+            this.playerHitByEnemy();
+        }
+    }
+
+    stompEnemy(enemy) {
+        enemy.isDead = true;
+        enemy.body.enable = false;
+
+        // Play hit animation if available
+        if (enemy.enemyType.hitKey) {
+            // Create a hit effect sprite
+            const hitSprite = this.add.sprite(enemy.x, enemy.y, enemy.enemyType.hitKey);
+            hitSprite.setScale(enemy.enemyType.scale);
+
+            // Squash and fade out effect
+            this.tweens.add({
+                targets: hitSprite,
+                scaleY: 0.3,
+                alpha: 0,
+                y: enemy.y + 20,
+                duration: 300,
+                ease: 'Power2',
+                onComplete: () => hitSprite.destroy()
+            });
+        }
+
+        // Award points
+        this.updateScore(50);
+
+        // Remove enemy sprite
+        this.tweens.add({
+            targets: enemy,
+            scaleY: 0.2,
+            alpha: 0,
+            duration: 200,
+            onComplete: () => enemy.destroy()
+        });
+    }
+
+    playerHitByEnemy() {
+        // Invincibility check
+        if (this.player.invincible) return;
+
+        // Make player invincible briefly
+        this.player.invincible = true;
+
+        // Knockback
+        const knockbackDir = this.player.body.velocity.x > 0 ? -1 : 1;
+        this.player.setVelocity(knockbackDir * 200, -300);
+
+        // Flash effect
+        this.tweens.add({
+            targets: this.player,
+            alpha: 0.3,
+            duration: 100,
+            yoyo: true,
+            repeat: 5,
+            onComplete: () => {
+                this.player.alpha = 1;
+                this.player.invincible = false;
+            }
+        });
+
+        // Lose a life
+        this.loseLife();
+
+        if (window.AudioSynth) window.AudioSynth.playWrong();
     }
 
     setupCamera() {
@@ -1336,6 +1488,9 @@ class GameScene extends Phaser.Scene {
         // Update parallax background for infinite scrolling
         this.updateParallaxBackground();
 
+        // Update enemy AI
+        this.updateEnemies();
+
         // Generate new chunks ahead of player
         const lookAhead = 1200;  // Generate when player is within 1200px of edge
         if (this.player.x + lookAhead > this.generatedUpToX) {
@@ -1345,6 +1500,9 @@ class GameScene extends Phaser.Scene {
 
         // Cleanup old chunks behind player
         this.cleanupOldChunks();
+
+        // Cleanup enemies far behind player
+        this.cleanupEnemies();
 
         // Check if player fell off the world
         if (this.player.y > this.levelHeight) {
@@ -1368,6 +1526,56 @@ class GameScene extends Phaser.Scene {
 
         // Level completion is handled by collecting all 28 letters
         // (no longer based on reaching end of fixed level)
+    }
+
+    updateEnemies() {
+        this.enemies.getChildren().forEach(enemy => {
+            if (enemy.isDead || !enemy.active) return;
+
+            // Patrol AI: reverse direction at patrol limits or edges
+            if (enemy.x <= enemy.patrolMinX) {
+                enemy.direction = 1;
+                enemy.setVelocityX(enemy.moveSpeed);
+                enemy.setFlipX(true);
+            } else if (enemy.x >= enemy.patrolMaxX) {
+                enemy.direction = -1;
+                enemy.setVelocityX(-enemy.moveSpeed);
+                enemy.setFlipX(false);
+            }
+
+            // Fall off edge detection - reverse if about to fall
+            if (enemy.body.touching.down) {
+                // Check if there's ground ahead
+                const checkX = enemy.x + (enemy.direction * 30);
+                const groundBelow = this.platforms.getChildren().some(plat => {
+                    return plat.active &&
+                        checkX >= plat.x && checkX <= plat.x + plat.width &&
+                        Math.abs(plat.y - enemy.y) < 50;
+                });
+
+                if (!groundBelow) {
+                    // Reverse direction
+                    enemy.direction *= -1;
+                    enemy.setVelocityX(enemy.direction * enemy.moveSpeed);
+                    enemy.setFlipX(enemy.direction > 0);
+                }
+            }
+
+            // Destroy if fallen off world
+            if (enemy.y > this.levelHeight) {
+                enemy.destroy();
+            }
+        });
+    }
+
+    cleanupEnemies() {
+        // Remove enemies far behind player
+        const cleanupX = this.player.x - 800;
+        this.enemies.getChildren().forEach(enemy => {
+            if (enemy.x < cleanupX) {
+                enemy.destroy();
+            }
+        });
     }
 
     handlePlayerMovement() {
