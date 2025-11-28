@@ -199,25 +199,36 @@ class GameScene extends Phaser.Scene {
     }
 
     createUI() {
-        // Score panel (top left)
-        this.add.image(110, 35, 'score_panel');
+        // Menu button - top left corner
+        this.menuBtn = this.add.image(35, 35, 'gui_btn_menu');
+        this.menuBtn.setDisplaySize(45, 45);
+        this.menuBtn.setInteractive({ useHandCursor: true });
+        this.menuBtn.on('pointerdown', () => {
+            this.returnToMenu();
+        });
+        this.menuBtn.on('pointerover', () => this.menuBtn.setTint(0xcccccc));
+        this.menuBtn.on('pointerout', () => this.menuBtn.clearTint());
+
+        // Score panel (after menu button)
+        this.add.image(160, 35, 'score_panel');
 
         // Fruit icon for score
-        const scoreIcon = this.add.sprite(30, 35, 'apple').setScale(1);
+        const scoreIcon = this.add.sprite(85, 35, 'apple').setScale(1);
         scoreIcon.play('apple_anim');
 
         // Score text
-        this.scoreText = this.add.text(60, 35, '0', {
+        this.scoreText = this.add.text(115, 35, '0', {
             fontFamily: 'Arial',
             fontSize: '28px',
             color: '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(0, 0.5);
 
-        // Lives (hearts) - top right using GUI assets
+        // Lives (hearts) - top right using GUI assets (scaled down from 270x229)
         this.hearts = [];
         for (let i = 0; i < 3; i++) {
-            const heart = this.add.image(1200 - (i * 50), 35, 'gui_heart_full').setScale(0.8);
+            const heart = this.add.image(1200 - (i * 40), 35, 'gui_heart_full');
+            heart.setDisplaySize(32, 27);
             this.hearts.push(heart);
         }
 
@@ -896,6 +907,14 @@ class GameScene extends Phaser.Scene {
                 onComplete: () => star.destroy()
             });
         }
+    }
+
+    returnToMenu() {
+        // Fade out and return to menu
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('MenuScene');
+        });
     }
 
     gameOver() {

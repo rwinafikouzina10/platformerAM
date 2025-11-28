@@ -265,13 +265,13 @@ class MenuScene extends Phaser.Scene {
             badge.setInteractive({ useHandCursor: true });
 
             const highlight = () => {
-                card.setTint(0x88bbff);
-                badge.setScale(1.1);
+                card.setTint(0xaaddff);
+                badge.setDisplaySize(55, 55); // Slightly larger on hover
             };
 
             const unhighlight = () => {
                 card.clearTint();
-                badge.setScale(1);
+                badge.setDisplaySize(50, 50); // Back to normal
             };
 
             const startGame = () => {
