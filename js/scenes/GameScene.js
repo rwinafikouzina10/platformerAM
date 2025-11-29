@@ -20,9 +20,9 @@ class GameScene extends Phaser.Scene {
         this.completedLettersInLevel = [];
         this.currentTarget = null;
 
-        // Player physics - Mario-like feel
-        this.playerSpeed = 200;
-        this.jumpForce = -300;
+        // Player physics - Mario-like feel (adjusted for 2x scale)
+        this.playerSpeed = 250;
+        this.jumpForce = -400;
 
         // Sound debounce
         this.lastSoundTime = 0;
@@ -61,14 +61,15 @@ class GameScene extends Phaser.Scene {
         map.addTilesetImage('tileset', 'sunny_land_tileset');
 
         // --- PARALLAX BACKGROUNDS ---
-        // Scale factor: Sunny Land is 928x400, we want to fill screen
-        const scaleX = 3.5;  // Scale up the backgrounds
-        const scaleY = 3.5;
+        // Scale factor: Sunny Land is 928x400, use 2x to fit 720px height nicely
+        const scaleX = 2;
+        const scaleY = 2;
 
-        // Sky background layer (furthest back)
+        // Sky background layer (furthest back) - tile to cover width
         this.back1 = this.add.image(0, 0, 'sunny_land_back').setOrigin(0, 0).setScale(scaleX, scaleY);
         this.back2 = this.add.image(384 * scaleX, 0, 'sunny_land_back').setOrigin(0, 0).setScale(scaleX, scaleY);
         this.back3 = this.add.image(768 * scaleX, 0, 'sunny_land_back').setOrigin(0, 0).setScale(scaleX, scaleY);
+        this.back4 = this.add.image(1152 * scaleX, 0, 'sunny_land_back').setOrigin(0, 0).setScale(scaleX, scaleY);
 
         // Forest midground layer
         const midY = 80 * scaleY;
@@ -80,20 +81,21 @@ class GameScene extends Phaser.Scene {
         this.mid6 = this.add.image(880 * scaleX, midY, 'sunny_land_middle').setOrigin(0, 0).setScale(scaleX, scaleY);
 
         // --- TILE LAYER ---
-        // Map is 58x25 tiles (16px each) = 928x400, scaled up
+        // Map is 58x25 tiles (16px each) = 928x400, scaled 2x = 1856x800
         this.layer = map.createLayer('Tile Layer 1', ['tileset'], 0, 0);
         this.layer.setScale(scaleX, scaleY);
         this.layer.setDepth(1);
 
         // --- PLAYER (Arabian Adventurer) ---
-        // Spawn at a safe starting position (scaled coordinates)
-        const startX = 738 * scaleX;  // Similar to Sunny Land player start
-        const startY = 121 * scaleY;
+        // Spawn on lower ground area (y~320 in original = 640 scaled)
+        // Start near the house on the right side
+        const startX = 750 * scaleX;
+        const startY = 280 * scaleY;  // Above the ground, gravity will drop player
 
         this.player = this.physics.add.sprite(startX, startY, 'player_idle');
-        this.player.setScale(1.5);  // Scale up player to match scaled world
+        this.player.setScale(2);  // Scale up player to match 2x world
         this.player.setDepth(10);
-        this.player.setFlipX(true);  // Face left initially like in Sunny Land
+        this.player.setFlipX(true);  // Face left initially
         this.player.play('player_idle_anim');
 
         // Player physics body
@@ -167,13 +169,16 @@ class GameScene extends Phaser.Scene {
 
     createLetterBoxes() {
         // Place letter boxes at strategic positions (scaled coordinates)
+        // Sunny Land level layout (original coords, then scaled 2x):
+        // - Upper platforms: y ~130-150 -> 260-300
+        // - Lower ground: y ~310-330 -> 620-660
         const scale = this.mapScale;
         const positions = [
-            { x: 480 * scale, y: 70 * scale },   // Top left area
-            { x: 64 * scale, y: 90 * scale },    // Near start
-            { x: 368 * scale, y: 260 * scale },  // Middle platform
-            { x: 672 * scale, y: 240 * scale },  // Right side
-            { x: 200 * scale, y: 140 * scale },  // Left mid
+            { x: 64 * scale, y: 80 * scale },      // Top left (gems area)
+            { x: 480 * scale, y: 65 * scale },     // Above tree (cherries area)
+            { x: 370 * scale, y: 255 * scale },    // Middle lower platform
+            { x: 672 * scale, y: 180 * scale },    // Right side elevated
+            { x: 200 * scale, y: 120 * scale },    // Left middle platform
         ];
 
         this.letterBoxPositions = positions;
@@ -181,20 +186,22 @@ class GameScene extends Phaser.Scene {
 
     createEnemies() {
         // Place enemies at strategic positions (scaled coordinates)
+        // Match Sunny Land enemy positions - they spawn on platforms and fall to ground
         const scale = this.mapScale;
 
         // Enemy spawn positions based on Sunny Land level layout
+        // Original: frog (240,144), (553,324), opossum (678,147), (368,320)
         const enemyPositions = [
-            { x: 240 * scale, y: 130 * scale, type: 'mushroom' },
-            { x: 553 * scale, y: 310 * scale, type: 'slime' },
-            { x: 678 * scale, y: 135 * scale, type: 'chicken' },
-            { x: 368 * scale, y: 305 * scale, type: 'mushroom' },
+            { x: 240 * scale, y: 125 * scale, type: 'mushroom' },   // Upper left platform
+            { x: 550 * scale, y: 305 * scale, type: 'slime' },      // Lower middle
+            { x: 680 * scale, y: 125 * scale, type: 'chicken' },    // Upper right
+            { x: 370 * scale, y: 300 * scale, type: 'mushroom' },   // Lower left
         ];
 
         const enemyTypes = {
-            mushroom: { key: 'enemy_mushroom_run', scale: 2, speed: 60 },
-            slime: { key: 'enemy_slime_run', scale: 2, speed: 40 },
-            chicken: { key: 'enemy_chicken_run', scale: 2, speed: 80 }
+            mushroom: { key: 'enemy_mushroom_run', scale: 2.5, speed: 60 },
+            slime: { key: 'enemy_slime_run', scale: 2.5, speed: 40 },
+            chicken: { key: 'enemy_chicken_run', scale: 2.5, speed: 80 }
         };
 
         enemyPositions.forEach(pos => {
@@ -207,15 +214,15 @@ class GameScene extends Phaser.Scene {
             // Set up patrol
             enemy.direction = Math.random() > 0.5 ? 1 : -1;
             enemy.moveSpeed = config.speed;
-            enemy.patrolMinX = pos.x - 100 * scale;
-            enemy.patrolMaxX = pos.x + 100 * scale;
+            enemy.patrolMinX = pos.x - 80 * scale;
+            enemy.patrolMaxX = pos.x + 80 * scale;
             enemy.isDead = false;
 
             enemy.setVelocityX(enemy.direction * enemy.moveSpeed);
             enemy.setFlipX(enemy.direction > 0);
 
             // Adjust hitbox
-            enemy.body.setSize(20, 20);
+            enemy.body.setSize(24, 24);
         });
     }
 
@@ -774,9 +781,9 @@ class GameScene extends Phaser.Scene {
     respawnPlayer() {
         if (this.isGameOver) return;
 
-        // Respawn at start
-        const startX = 738 * this.mapScale;
-        const startY = 100 * this.mapScale;
+        // Respawn at start position (same as initial spawn)
+        const startX = 750 * this.mapScale;
+        const startY = 280 * this.mapScale;
         this.player.setPosition(startX, startY);
         this.player.setVelocity(0, 0);
 
