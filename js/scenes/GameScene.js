@@ -68,6 +68,10 @@ class GameScene extends Phaser.Scene {
         this.createBackground();
         this.createLevel();
         this.createPlayer();
+
+        // Set up tilemap collisions now that player exists
+        this.setupTilemapCollisions();
+
         this.createUI();
         this.createControls();
 
@@ -82,48 +86,33 @@ class GameScene extends Phaser.Scene {
     }
 
     createBackground() {
-        // Sky color and tints based on level theme
-        // Level 1: Summer (bright blue sky), Level 2: Autumn (warm orange), Level 3: Winter (cool blue/gray)
-        const levelThemes = {
-            1: { sky: 0x87CEEB, tint: null },           // Summer: bright blue
-            2: { sky: 0xE8B87C, tint: 0xFFD4A0 },       // Autumn: warm orange/brown
-            3: { sky: 0xB8D4E8, tint: 0xC4E8FF }        // Winter: cool blue/white
-        };
-
-        this.levelTheme = levelThemes[this.currentLevel] || levelThemes[1];
-
-        // Create sky that fills the screen (fixed, doesn't scroll)
-        this.sky = this.add.rectangle(640, 360, 1280, 720, this.levelTheme.sky);
-        this.sky.setScrollFactor(0);
-        this.sky.setDepth(-100);
-
-        // Parallax background layers - create enough for seamless scrolling
-        // These will be repositioned as player moves
+        // Use Sunny Land backgrounds for a cohesive look
+        // Sky background - tiled to cover the whole screen
         this.parallaxLayers = {
-            mountains: [],
-            far: [],
-            mid: []
+            back: [],
+            middle: []
         };
 
-        // Create 3 copies of each layer for seamless wrapping
-        for (let i = 0; i < 3; i++) {
-            const mountains = this.add.image(i * 1280, this.levelHeight / 2, 'parallax_mountains');
-            mountains.setScrollFactor(0.2);
-            mountains.setDepth(-90);
-            if (this.levelTheme.tint) mountains.setTint(this.levelTheme.tint);
-            this.parallaxLayers.mountains.push(mountains);
+        // Create multiple copies of backgrounds for seamless scrolling
+        // back.png is 384x192, we need to tile it
+        const backWidth = 384;
+        const middleWidth = 176;
+        const numBackCopies = 10;  // Enough for endless scrolling
 
-            const far = this.add.image(i * 1280, this.levelHeight / 2, 'parallax_far');
-            far.setScrollFactor(0.4);
-            far.setDepth(-80);
-            if (this.levelTheme.tint) far.setTint(this.levelTheme.tint);
-            this.parallaxLayers.far.push(far);
+        for (let i = 0; i < numBackCopies; i++) {
+            // Back layer (sky/clouds) - slowest parallax
+            const back = this.add.image(i * backWidth, this.levelHeight - 192, 'sunny_land_back');
+            back.setOrigin(0, 0);
+            back.setScrollFactor(0.2);
+            back.setDepth(-90);
+            this.parallaxLayers.back.push(back);
 
-            const mid = this.add.image(i * 1280, this.levelHeight / 2, 'parallax_mid');
-            mid.setScrollFactor(0.6);
-            mid.setDepth(-70);
-            if (this.levelTheme.tint) mid.setTint(this.levelTheme.tint);
-            this.parallaxLayers.mid.push(mid);
+            // Middle layer (forest/trees) - medium parallax
+            const middle = this.add.image(i * middleWidth, this.levelHeight - 192, 'sunny_land_middle');
+            middle.setOrigin(0, 0);
+            middle.setScrollFactor(0.5);
+            middle.setDepth(-80);
+            this.parallaxLayers.middle.push(middle);
         }
     }
 
@@ -132,31 +121,28 @@ class GameScene extends Phaser.Scene {
         const camX = this.cameras.main.scrollX;
 
         // Helper to wrap a layer
-        const wrapLayer = (layers, scrollFactor) => {
-            const layerWidth = 1280;
+        const wrapLayer = (layers, layerWidth, scrollFactor) => {
             const effectiveX = camX * scrollFactor;
+            const totalWidth = layers.length * layerWidth;
 
             layers.forEach((layer, i) => {
-                // Calculate where this layer should be
                 const baseX = i * layerWidth;
-                let targetX = baseX - Math.floor(effectiveX / (layerWidth * 3)) * layerWidth * 3;
+                let targetX = baseX;
 
-                // If layer is too far left, wrap it to the right
+                // Wrap layers to create infinite scroll
                 while (targetX < effectiveX - layerWidth) {
-                    targetX += layerWidth * 3;
+                    targetX += totalWidth;
                 }
-                // If layer is too far right, wrap it to the left
-                while (targetX > effectiveX + layerWidth * 3) {
-                    targetX -= layerWidth * 3;
+                while (targetX > effectiveX + totalWidth) {
+                    targetX -= totalWidth;
                 }
 
                 layer.x = targetX;
             });
         };
 
-        wrapLayer(this.parallaxLayers.mountains, 0.2);
-        wrapLayer(this.parallaxLayers.far, 0.4);
-        wrapLayer(this.parallaxLayers.mid, 0.6);
+        wrapLayer(this.parallaxLayers.back, 384, 0.2);
+        wrapLayer(this.parallaxLayers.middle, 176, 0.5);
     }
 
     createLevel() {
@@ -178,53 +164,161 @@ class GameScene extends Phaser.Scene {
     }
 
     generateLevel() {
-        // Use the original tilesets scaled 2x for better visibility
-        // The summer tileset is 7 columns x 6 rows of 32x32 tiles
-        // We scale them 2x to make 64x64 effective size
+        // Use Sunny Land tilemap - hand-designed level that tiles horizontally
+        // Map is 58x25 tiles at 16x16 = 928x400 pixels
 
-        // Tile offset to fix floating issue - scaled for 2x
-        this.tileVisualOffset = -12;  // Scaled from -6
+        this.mapWidth = 928;   // Width of one tilemap section
+        this.mapHeight = 400;  // Height of tilemap
+        this.tileSize = 16;    // Sunny Land uses 16x16 tiles
 
-        // Summer tileset layout (7 columns per row):
-        // Row 0: Grass tops (frames 0-6)
-        // Row 1: Dirt fill (frames 7-13)
-        // Row 2: Stone tops (frames 14-20)
-        // Row 3: Stone fill (frames 21-27)
-        const cols = 7;
+        // Position the tilemap at bottom of screen
+        // Our screen is 720px tall, map is 400px, so offset by 320px
+        this.mapOffsetY = this.levelHeight - this.mapHeight;
 
-        // Use ONLY grass style for consistent visual look
-        const grass = {
-            topLeft: 0,
-            topMid: 1,
-            topRight: 2,
-            midLeft: cols + 0,  // 7
-            midMid: cols + 1,   // 8
-            midRight: cols + 2  // 9
-        };
+        // Ground Y for player/enemy spawning (top of ground tiles)
+        // Looking at the tilemap, ground is roughly at row 12-13 from top
+        this.groundY = this.mapOffsetY + (13 * this.tileSize);
 
-        // Choose tileset based on level (but always use grass style for consistency)
-        const tilesetConfig = {
-            1: { tileset: 'tileset_summer' },
-            2: { tileset: 'tileset_autumn' },
-            3: { tileset: 'tileset_winter' }
-        };
-
-        const config = tilesetConfig[this.currentLevel] || tilesetConfig[1];
-        this.currentTileset = config.tileset;
-
-        // Use ONLY grass style for ALL platforms (no more random mixing)
-        this.tileStyle = grass;
-
-        // Track generated chunks (for cleanup)
-        this.chunkTiles = [];  // Array of { startX, endX, tiles: [] }
+        // Track tilemap layers for cleanup
+        this.tilemapLayers = [];
         this.platformPositions = [];
         this.letterSpawnPoints = [];
 
-        // Generate initial chunks
-        for (let i = 0; i < this.initialChunks; i++) {
-            this.generateChunk(i * this.chunkWidth);
+        // Generate initial tilemap sections
+        this.generatedUpToX = 0;
+        const initialSections = Math.ceil((1280 * 3) / this.mapWidth) + 1;  // Cover 3 screens
+
+        for (let i = 0; i < initialSections; i++) {
+            this.generateTilemapSection(i * this.mapWidth);
         }
-        this.generatedUpToX = this.initialChunks * this.chunkWidth;
+        this.generatedUpToX = initialSections * this.mapWidth;
+    }
+
+    generateTilemapSection(startX) {
+        // Create a tilemap instance at the given X position
+        const map = this.make.tilemap({ key: 'sunny_land_map' });
+        const tileset = map.addTilesetImage('tileset', 'sunny_land_tileset');
+
+        // Create the tile layer
+        const layer = map.createLayer('Tile Layer 1', tileset, startX, this.mapOffsetY);
+        layer.setDepth(0);
+
+        // Set collision on solid tiles (non-zero, non-decoration tiles)
+        // In the Sunny Land tileset, tiles 77-81 and similar are solid ground
+        // We'll use a broad range and let the tilemap data handle it
+        layer.setCollisionByExclusion([-1, 0]);  // Collide with all non-empty tiles
+
+        // Store for cleanup and collision setup
+        const sectionData = {
+            map: map,
+            layer: layer,
+            startX: startX,
+            endX: startX + this.mapWidth,
+            collider: null  // Will be set when player exists
+        };
+        this.tilemapLayers.push(sectionData);
+
+        // Add platform positions for letter/enemy spawning
+        this.findPlatformPositions(startX);
+
+        // Place letter spawn points
+        this.placeLettersInSection(startX);
+
+        // Spawn enemies after first section
+        const sectionIndex = Math.floor(startX / this.mapWidth);
+        if (sectionIndex >= 1) {
+            this.spawnEnemiesInSection(startX, sectionIndex);
+        }
+
+        return sectionData;
+    }
+
+    // Call this after player is created to set up collisions
+    setupTilemapCollisions() {
+        this.tilemapLayers.forEach(section => {
+            if (!section.collider && this.player) {
+                section.collider = this.physics.add.collider(this.player, section.layer);
+            }
+        });
+
+        // Also add enemy collisions with tilemap
+        this.tilemapLayers.forEach(section => {
+            this.physics.add.collider(this.enemies, section.layer);
+        });
+    }
+
+    findPlatformPositions(startX) {
+        // Find good platform positions for spawning letters and enemies
+        // These are spots where ground tiles exist and there's space above
+
+        // Pre-defined platform positions based on the Sunny Land level design
+        // These are relative to each 928px section
+        const platformSpots = [
+            { x: 100, y: this.groundY - 80, width: 150 },   // Left elevated area
+            { x: 300, y: this.groundY - 120, width: 100 },  // Mid-left platform
+            { x: 500, y: this.groundY - 60, width: 120 },   // Center area
+            { x: 700, y: this.groundY - 100, width: 100 },  // Right platform
+            { x: 850, y: this.groundY, width: 80 },         // Ground right
+        ];
+
+        platformSpots.forEach(spot => {
+            this.platformPositions.push({
+                x: startX + spot.x,
+                y: spot.y,
+                width: spot.width,
+                hasLetter: false
+            });
+        });
+    }
+
+    placeLettersInSection(startX) {
+        // Add letter spawn points for this section
+        const sectionPlatforms = this.platformPositions.filter(
+            p => p.x >= startX && p.x < startX + this.mapWidth && !p.hasLetter
+        );
+
+        // Take first 3 platforms for letters
+        sectionPlatforms.slice(0, 3).forEach(platform => {
+            this.letterSpawnPoints.push({
+                x: platform.x,
+                y: platform.y - 50,  // Above platform
+                used: false,
+                platformWidth: platform.width
+            });
+            platform.hasLetter = true;
+        });
+    }
+
+    spawnEnemiesInSection(startX, sectionIndex) {
+        // Spawn enemies on platforms in this section
+        const sectionPlatforms = this.platformPositions.filter(
+            p => p.x >= startX && p.x < startX + this.mapWidth
+        );
+
+        if (sectionPlatforms.length === 0) return;
+
+        // Spawn 1-2 enemies per section
+        const numEnemies = 1 + Math.floor(Math.random() * 2);
+
+        for (let i = 0; i < Math.min(numEnemies, sectionPlatforms.length); i++) {
+            const spawnIndex = Phaser.Math.Between(0, sectionPlatforms.length - 1);
+            const spawnPoint = sectionPlatforms[spawnIndex];
+
+            const x = spawnPoint.x;
+            const y = spawnPoint.y - 30;
+
+            const enemyType = this.enemyTypes[Phaser.Math.Between(0, this.enemyTypes.length - 1)];
+            const enemy = this.createEnemy(x, y, enemyType);
+
+            if (enemy) {
+                const halfWidth = (spawnPoint.width || 100) / 2;
+                enemy.patrolMinX = spawnPoint.x - halfWidth + 20;
+                enemy.patrolMaxX = spawnPoint.x + halfWidth - 20;
+            }
+
+            // Remove used spawn point
+            sectionPlatforms.splice(spawnIndex, 1);
+        }
     }
 
     generateChunk(startX) {
@@ -421,30 +515,38 @@ class GameScene extends Phaser.Scene {
     }
 
     cleanupOldChunks() {
-        // Remove chunks that are far behind the player to save memory
+        // Legacy function - no longer used with tilemap system
+        // Kept for compatibility
+    }
+
+    cleanupOldSections() {
+        // Remove tilemap sections that are far behind the player to save memory
         const playerX = this.player ? this.player.x : 0;
         const cleanupThreshold = 1500;  // Keep 1500px behind player
 
-        this.chunkTiles = this.chunkTiles.filter(chunk => {
-            if (chunk.endX < playerX - cleanupThreshold) {
-                // Destroy all tiles in this chunk
-                chunk.tiles.forEach(tile => {
-                    if (tile && tile.active) {
-                        tile.destroy();
-                    }
-                });
+        this.tilemapLayers = this.tilemapLayers.filter(section => {
+            if (section.endX < playerX - cleanupThreshold) {
+                // Destroy the tilemap layer and collision
+                if (section.collider) {
+                    section.collider.destroy();
+                }
+                if (section.layer) {
+                    section.layer.destroy();
+                }
+                if (section.map) {
+                    section.map.destroy();
+                }
 
                 // Remove associated platform positions
                 this.platformPositions = this.platformPositions.filter(
-                    p => p.x < chunk.startX || p.x >= chunk.endX
+                    p => p.x < section.startX || p.x >= section.endX
                 );
 
-                // Remove associated letter spawn points (keep used ones for tracking)
+                // Remove associated letter spawn points
                 this.letterSpawnPoints = this.letterSpawnPoints.filter(
-                    sp => sp.x < chunk.startX || sp.x >= chunk.endX
+                    sp => sp.x < section.startX || sp.x >= section.endX
                 );
 
-                this.cleanedUpToX = chunk.endX;
                 return false;
             }
             return true;
@@ -877,12 +979,9 @@ class GameScene extends Phaser.Scene {
         // Start with idle animation
         this.player.play('player_idle_anim');
 
-        // Collisions
-        this.physics.add.collider(this.player, this.platforms, this.onPlatformLand, null, this);
+        // Note: Tilemap collisions are set up in setupTilemapCollisions()
+        // Only set up letter box and enemy overlaps here
         this.physics.add.overlap(this.player, this.letterBoxes, this.onCollectLetter, null, this);
-
-        // Enemy collisions
-        this.physics.add.collider(this.enemies, this.platforms);
         this.physics.add.overlap(this.player, this.enemies, this.onEnemyCollision, null, this);
     }
 
@@ -1547,15 +1646,20 @@ class GameScene extends Phaser.Scene {
         // Update enemy AI
         this.updateEnemies();
 
-        // Generate new chunks ahead of player
+        // Generate new tilemap sections ahead of player
         const lookAhead = 1200;  // Generate when player is within 1200px of edge
         if (this.player.x + lookAhead > this.generatedUpToX) {
-            this.generateChunk(this.generatedUpToX);
-            this.generatedUpToX += this.chunkWidth;
+            const newSection = this.generateTilemapSection(this.generatedUpToX);
+            // Set up collision with player for the new section
+            if (this.player && newSection) {
+                newSection.collider = this.physics.add.collider(this.player, newSection.layer);
+                this.physics.add.collider(this.enemies, newSection.layer);
+            }
+            this.generatedUpToX += this.mapWidth;
         }
 
-        // Cleanup old chunks behind player
-        this.cleanupOldChunks();
+        // Cleanup old tilemap sections behind player
+        this.cleanupOldSections();
 
         // Cleanup enemies far behind player
         this.cleanupEnemies();
@@ -1600,21 +1704,10 @@ class GameScene extends Phaser.Scene {
             }
 
             // Fall off edge detection - reverse if about to fall
-            if (enemy.body.touching.down) {
-                // Check if there's ground ahead
-                const checkX = enemy.x + (enemy.direction * 30);
-                const groundBelow = this.platforms.getChildren().some(plat => {
-                    return plat.active &&
-                        checkX >= plat.x && checkX <= plat.x + plat.width &&
-                        Math.abs(plat.y - enemy.y) < 50;
-                });
-
-                if (!groundBelow) {
-                    // Reverse direction
-                    enemy.direction *= -1;
-                    enemy.setVelocityX(enemy.direction * enemy.moveSpeed);
-                    enemy.setFlipX(enemy.direction > 0);
-                }
+            // With tilemap, we use patrol bounds instead of checking ground tiles
+            if (enemy.body.touching.down || enemy.body.blocked.down) {
+                // Use patrol bounds to keep enemy in area
+                // Already handled above with patrolMinX/patrolMaxX
             }
 
             // Destroy if fallen off world
@@ -1698,9 +1791,13 @@ class GameScene extends Phaser.Scene {
             this.jump();
         }
 
-        // Check if player is on ground
-        if (!this.player.body.touching.down) {
-            this.isOnGround = false;
+        // Check if player is on ground (works with tilemap collisions)
+        const wasOnGround = this.isOnGround;
+        this.isOnGround = this.player.body.blocked.down || this.player.body.touching.down;
+
+        // Reset jump ability when landing
+        if (this.isOnGround && !wasOnGround) {
+            this.canJump = true;
         }
     }
 

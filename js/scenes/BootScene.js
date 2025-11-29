@@ -150,6 +150,12 @@ class BootScene extends Phaser.Scene {
         this.load.image('bg_blue', basePath + 'images/background/Blue.png');
         this.load.image('bg_brown', basePath + 'images/background/Brown.png');
 
+        // --- SUNNY LAND TILEMAP (Hand-designed level) ---
+        this.load.tilemapTiledJSON('sunny_land_map', basePath + 'images/sunny-land/map.json');
+        this.load.image('sunny_land_tileset', basePath + 'images/sunny-land/tileset.png');
+        this.load.image('sunny_land_back', basePath + 'images/sunny-land/back.png');
+        this.load.image('sunny_land_middle', basePath + 'images/sunny-land/middle.png');
+
         // --- PARALLAX BACKGROUNDS (Rocky Desert) ---
         this.load.image('parallax_mountains', basePath + 'images/parallax/rocky-mountains.png');
         this.load.image('parallax_far', basePath + 'images/parallax/rocky-far.png');
