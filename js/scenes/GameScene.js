@@ -31,8 +31,10 @@ class GameScene extends Phaser.Scene {
         this.initialChunks = 4;  // Generate 4 chunks at start (3200px)
 
         // Platform generation settings
-        this.tileSize = 32;
-        this.groundY = this.levelHeight - 64;
+        this.tileSize = 32;        // Base tile size (will be scaled 2x)
+        this.tileScale = 2;        // Scale tiles 2x for better visibility
+        this.scaledTileSize = this.tileSize * this.tileScale;  // 64px effective size
+        this.groundY = this.levelHeight - 128;  // More room for larger ground tiles
 
         // Player physics settings - Mario-like feel
         this.playerSpeed = 380;  // Faster horizontal movement
@@ -176,24 +178,22 @@ class GameScene extends Phaser.Scene {
     }
 
     generateLevel() {
-        // Use the original tilesets - they look much better!
+        // Use the original tilesets scaled 2x for better visibility
         // The summer tileset is 7 columns x 6 rows of 32x32 tiles
-        this.tileScale = 1;  // No scaling needed for 32x32 tiles
+        // We scale them 2x to make 64x64 effective size
 
-        // Tile offset to fix floating issue - the grass surface is ~6px down from tile top
-        // We position tiles higher so the visible grass aligns with collision
-        this.tileVisualOffset = -6;
+        // Tile offset to fix floating issue - scaled for 2x
+        this.tileVisualOffset = -12;  // Scaled from -6
 
         // Summer tileset layout (7 columns per row):
         // Row 0: Grass tops (frames 0-6)
         // Row 1: Dirt fill (frames 7-13)
         // Row 2: Stone tops (frames 14-20)
         // Row 3: Stone fill (frames 21-27)
-        // Row 4-5: More variants
         const cols = 7;
 
-        // Level 1: Summer - Green grass with dirt
-        const summer = {
+        // Use ONLY grass style for consistent visual look
+        const grass = {
             topLeft: 0,
             topMid: 1,
             topRight: 2,
@@ -202,40 +202,18 @@ class GameScene extends Phaser.Scene {
             midRight: cols + 2  // 9
         };
 
-        // Stone variant (rows 2-3)
-        const stone = {
-            topLeft: 2 * cols + 0,  // 14
-            topMid: 2 * cols + 1,   // 15
-            topRight: 2 * cols + 2, // 16
-            midLeft: 3 * cols + 0,  // 21
-            midMid: 3 * cols + 1,   // 22
-            midRight: 3 * cols + 2  // 23
-        };
-
-        // Alternative grass (rows 4-5)
-        const grassAlt = {
-            topLeft: 4 * cols + 0,  // 28
-            topMid: 4 * cols + 1,   // 29
-            topRight: 4 * cols + 2, // 30
-            midLeft: 5 * cols + 0,  // 35
-            midMid: 5 * cols + 1,   // 36
-            midRight: 5 * cols + 2  // 37
-        };
-
-        // Choose tileset based on level
+        // Choose tileset based on level (but always use grass style for consistency)
         const tilesetConfig = {
-            1: { tileset: 'tileset_summer', primary: summer, secondary: grassAlt, accent: stone },
-            2: { tileset: 'tileset_autumn', primary: summer, secondary: stone, accent: grassAlt },
-            3: { tileset: 'tileset_winter', primary: summer, secondary: stone, accent: grassAlt }
+            1: { tileset: 'tileset_summer' },
+            2: { tileset: 'tileset_autumn' },
+            3: { tileset: 'tileset_winter' }
         };
 
         const config = tilesetConfig[this.currentLevel] || tilesetConfig[1];
         this.currentTileset = config.tileset;
-        this.tileStyles = {
-            grass: config.primary,
-            orange: config.secondary,
-            stone: config.accent
-        };
+
+        // Use ONLY grass style for ALL platforms (no more random mixing)
+        this.tileStyle = grass;
 
         // Track generated chunks (for cleanup)
         this.chunkTiles = [];  // Array of { startX, endX, tiles: [] }
@@ -250,61 +228,80 @@ class GameScene extends Phaser.Scene {
     }
 
     generateChunk(startX) {
-        // Generate a single chunk of terrain
-        const tileSize = this.tileSize;  // 32px
-        const visualOffset = this.tileVisualOffset || 0;  // Offset to align grass surface with collision
+        // Generate a single chunk of terrain with scaled tiles
+        const scaledSize = this.scaledTileSize;  // 64px (32 * 2)
+        const visualOffset = this.tileVisualOffset || 0;
         const chunkTiles = [];
+        const style = this.tileStyle;  // Use consistent grass style
 
-        // Create ground for this chunk
-        for (let x = startX; x < startX + this.chunkWidth; x += tileSize) {
-            const style = this.tileStyles.grass;
+        // Calculate number of tiles in this chunk
+        const numTiles = Math.ceil(this.chunkWidth / scaledSize);
 
-            // Top layer - ground surface (offset up so grass aligns with collision)
-            const topTile = this.platforms.create(x, this.groundY + visualOffset, this.currentTileset, style.topMid);
+        // Create ground for this chunk with PROPER edge tiles
+        for (let i = 0; i < numTiles; i++) {
+            const x = startX + (i * scaledSize);
+
+            // Determine which tile frame to use based on position
+            let topFrame = style.topMid;  // Default to middle
+            let midFrame = style.midMid;
+
+            // First tile of chunk uses left edge (unless continuing from previous)
+            if (i === 0 && startX === 0) {
+                topFrame = style.topLeft;
+                midFrame = style.midLeft;
+            }
+            // Last tile of chunk (only if it's actually the edge)
+            // For endless runner, we don't cap the right side
+
+            // Top layer - ground surface (scaled 2x)
+            const topTile = this.platforms.create(x, this.groundY + visualOffset, this.currentTileset, topFrame);
             topTile.setOrigin(0, 0);
+            topTile.setScale(this.tileScale);
             topTile.refreshBody();
             chunkTiles.push(topTile);
 
-            // Fill layer 1
-            const fillTile = this.platforms.create(x, this.groundY + tileSize + visualOffset, this.currentTileset, style.midMid);
+            // Fill layer 1 (scaled 2x)
+            const fillTile = this.platforms.create(x, this.groundY + scaledSize + visualOffset, this.currentTileset, midFrame);
             fillTile.setOrigin(0, 0);
+            fillTile.setScale(this.tileScale);
             fillTile.refreshBody();
             chunkTiles.push(fillTile);
 
-            // Fill layer 2
-            const fill2Tile = this.platforms.create(x, this.groundY + tileSize * 2 + visualOffset, this.currentTileset, style.midMid);
+            // Fill layer 2 (scaled 2x) - extends below screen for visual completeness
+            const fill2Tile = this.platforms.create(x, this.groundY + scaledSize * 2 + visualOffset, this.currentTileset, midFrame);
             fill2Tile.setOrigin(0, 0);
+            fill2Tile.setScale(this.tileScale);
             fill2Tile.refreshBody();
             chunkTiles.push(fill2Tile);
         }
 
         // Generate platforms in this chunk
         const chunkIndex = Math.floor(startX / this.chunkWidth);
-        const difficulty = Math.min(chunkIndex / 20, 0.8);  // Increases over time
+        const difficulty = Math.min(chunkIndex / 20, 0.8);
         const patternType = chunkIndex % 5;
 
         switch(patternType) {
             case 0:
-                this.createRunningSection(startX, tileSize, difficulty, chunkTiles);
+                this.createRunningSection(startX, scaledSize, difficulty, chunkTiles);
                 break;
             case 1:
-                this.createStepsSection(startX, tileSize, difficulty, chunkTiles);
+                this.createStepsSection(startX, scaledSize, difficulty, chunkTiles);
                 break;
             case 2:
-                this.createGapSection(startX, tileSize, difficulty, chunkTiles);
+                this.createGapSection(startX, scaledSize, difficulty, chunkTiles);
                 break;
             case 3:
-                this.createMixedSection(startX, tileSize, difficulty, chunkTiles);
+                this.createMixedSection(startX, scaledSize, difficulty, chunkTiles);
                 break;
             case 4:
-                this.createCrouchSection(startX, tileSize, difficulty, chunkTiles);
+                this.createCrouchSection(startX, scaledSize, difficulty, chunkTiles);
                 break;
         }
 
         // Place letter spawn points for this chunk
         this.placeLettersInChunk(startX);
 
-        // Spawn enemies in this chunk (skip first few chunks for safety)
+        // Spawn enemies ON platforms (not at fixed Y)
         if (chunkIndex >= 2) {
             this.spawnEnemiesInChunk(startX, chunkIndex);
         }
@@ -318,19 +315,48 @@ class GameScene extends Phaser.Scene {
     }
 
     spawnEnemiesInChunk(startX, chunkIndex) {
-        // Spawn 1-3 enemies per chunk, more as difficulty increases
-        const difficulty = Math.min(chunkIndex / 15, 1);
-        const numEnemies = 1 + Math.floor(Math.random() * (1 + difficulty));
+        // Find platforms in this chunk to spawn enemies ON
+        const chunkPlatforms = this.platformPositions.filter(
+            p => p.x >= startX && p.x < startX + this.chunkWidth
+        );
 
-        for (let i = 0; i < numEnemies; i++) {
-            // Random position within chunk
-            const x = startX + 200 + Math.random() * (this.chunkWidth - 400);
-            const y = this.groundY - 50;
+        // Also consider spawning on ground level
+        const groundSpawnPoints = [
+            { x: startX + 150, y: this.groundY, width: 200 },
+            { x: startX + 450, y: this.groundY, width: 200 }
+        ];
+
+        const allSpawnPoints = [...chunkPlatforms, ...groundSpawnPoints];
+
+        if (allSpawnPoints.length === 0) return;
+
+        // Spawn 1-2 enemies per chunk on random platforms
+        const difficulty = Math.min(chunkIndex / 15, 1);
+        const numEnemies = 1 + Math.floor(Math.random() * (1 + difficulty * 0.5));
+
+        for (let i = 0; i < Math.min(numEnemies, allSpawnPoints.length); i++) {
+            // Pick random spawn point
+            const spawnIndex = Phaser.Math.Between(0, allSpawnPoints.length - 1);
+            const spawnPoint = allSpawnPoints[spawnIndex];
+
+            // Spawn enemy ON the platform (y position above the platform surface)
+            const x = spawnPoint.x;
+            const y = spawnPoint.y - 40;  // Above the platform
 
             // Pick random enemy type
             const enemyType = this.enemyTypes[Phaser.Math.Between(0, this.enemyTypes.length - 1)];
 
-            this.createEnemy(x, y, enemyType);
+            const enemy = this.createEnemy(x, y, enemyType);
+
+            // Set patrol limits based on platform width
+            if (enemy) {
+                const halfWidth = (spawnPoint.width || 150) / 2;
+                enemy.patrolMinX = spawnPoint.x - halfWidth + 30;
+                enemy.patrolMaxX = spawnPoint.x + halfWidth - 30;
+            }
+
+            // Remove used spawn point to avoid stacking enemies
+            allSpawnPoints.splice(spawnIndex, 1);
         }
     }
 
@@ -584,12 +610,11 @@ class GameScene extends Phaser.Scene {
     }
 
     createTilesetPlatform(x, y, widthInTiles, heightInTiles, style = 'grass', chunkTiles = []) {
-        const tileSize = this.tileSize;  // 32px
+        const scaledSize = this.scaledTileSize;  // 64px (32 * 2)
         const visualOffset = this.tileVisualOffset || 0;
 
-        // Get tile indices from level-specific tileStyles
-        const tileStyle = this.tileStyles[style] || this.tileStyles.grass;
-        const { topLeft, topMid, topRight, midLeft, midMid, midRight } = tileStyle;
+        // Use consistent grass style for ALL platforms (ignore style parameter)
+        const { topLeft, topMid, topRight, midLeft, midMid, midRight } = this.tileStyle;
 
         // Create top row (with visual offset to align grass with collision)
         for (let i = 0; i < widthInTiles; i++) {
@@ -604,8 +629,9 @@ class GameScene extends Phaser.Scene {
                 tileFrame = topMid;
             }
 
-            const tile = this.platforms.create(x + (i * tileSize), y + visualOffset, this.currentTileset, tileFrame);
+            const tile = this.platforms.create(x + (i * scaledSize), y + visualOffset, this.currentTileset, tileFrame);
             tile.setOrigin(0, 0);
+            tile.setScale(this.tileScale);  // Apply 2x scale
             tile.refreshBody();
             chunkTiles.push(tile);
         }
@@ -624,8 +650,9 @@ class GameScene extends Phaser.Scene {
                     tileFrame = midMid;
                 }
 
-                const tile = this.platforms.create(x + (i * tileSize), y + (row * tileSize) + visualOffset, this.currentTileset, tileFrame);
+                const tile = this.platforms.create(x + (i * scaledSize), y + (row * scaledSize) + visualOffset, this.currentTileset, tileFrame);
                 tile.setOrigin(0, 0);
+                tile.setScale(this.tileScale);  // Apply 2x scale
                 tile.refreshBody();
                 chunkTiles.push(tile);
             }
